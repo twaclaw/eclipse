@@ -45,10 +45,8 @@ def _(mo):
 
 @app.cell(hide_code=True)
 def _(mo):
-    moon_play = mo.ui.switch(True, label="play")
-    moon_speed = mo.ui.slider(
-        0, 8, 0.25, value=1.5, label="speed (days / second)", show_value=True
-    )
+    # Play, speed and brightness live inside the widget, so they stay reachable
+    # when the panel is maximised. Setting them here too would fight it.
     moon_age = mo.ui.slider(
         0, 29.5, 0.1, value=0.0, label="set age (days)", show_value=True
     )
@@ -61,10 +59,7 @@ def _(mo):
     mo.vstack(
         [
             mo.hstack(
-                [moon_play, moon_speed, moon_age], justify="start", gap=1.5, wrap=True
-            ),
-            mo.hstack(
-                [moon_node, moon_shine, moon_south],
+                [moon_age, moon_node, moon_shine, moon_south],
                 justify="start",
                 gap=1.5,
                 wrap=True,
@@ -72,7 +67,7 @@ def _(mo):
         ],
         gap=0.4,
     )
-    return moon_age, moon_node, moon_play, moon_shine, moon_south, moon_speed
+    return moon_age, moon_node, moon_shine, moon_south
 
 
 @app.cell(hide_code=True)
@@ -86,17 +81,7 @@ def _(MoonPhasesWidget, mo):
 
 
 @app.cell(hide_code=True)
-def _(
-    moon_age,
-    moon_node,
-    moon_play,
-    moon_shine,
-    moon_south,
-    moon_speed,
-    moon_ui,
-):
-    moon_ui.playing = bool(moon_play.value)
-    moon_ui.speed = float(moon_speed.value)
+def _(moon_age, moon_node, moon_shine, moon_south, moon_ui):
     moon_ui.age_days = float(moon_age.value)
     moon_ui.node_longitude_deg = float(moon_node.value)
     moon_ui.show_earthshine = bool(moon_shine.value)
@@ -144,7 +129,7 @@ def _(ast, mo, moon_age, moon_node, np, phase_name):
 def _(mo):
     mo.md(r"""
     /// tip | Try this
-    Set the speed to zero and drag **age** slowly from 0 to 29.5. The Moon on
+    Pause with the control strip and drag **age** slowly from 0 to 29.5. The Moon on
     the right never stops being half lit; only our viewing angle changes.
 
     Then leave the age at **14.8 days** (full moon) and sweep **node
@@ -168,6 +153,8 @@ def _(mo):
       than the 27.32-day orbit because the sun keeps moving too. In one lunar
       orbit the Earth has travelled far enough that the Moon needs another two
       days to catch the sun up.
+    * The **moon** slider is exposure, not physics: it brightens the sunlit
+      face so a thin crescent stays visible without washing out a full moon.
     * Earthshine is the faint glow on the dark side: sunlight reflected off
       Earth. It is brightest at a thin crescent, because that is when Earth as
       seen from the Moon is nearly full.

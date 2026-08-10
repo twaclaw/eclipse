@@ -27,6 +27,11 @@ export default {
           <div class="es-phase"></div>
         </div>
       </div>
+      ${controlBar(
+        playHTML(),
+        sliderHTML("speed", "cycle"),
+        sliderHTML("light", "moon"),
+      )}
       <div class="es-status">loading textures&hellip;</div>`;
 
     const c2d = el.querySelector(".es-c2d");
@@ -194,6 +199,26 @@ export default {
 
     /* ------------------------------------------------------------------ loop */
 
+    const play = attachPlay(el, model);
+    const speed = attachSlider(el, model, {
+      name: "speed",
+      trait: "speed",
+      min: 0,
+      max: 8,
+      step: 0.25,
+      unit: "d/s",
+      decimals: 2,
+    });
+    const light = attachSlider(el, model, {
+      name: "light",
+      trait: "brightness",
+      min: 0.15,
+      max: 2.5,
+      step: 0.05,
+      unit: "\u00d7",
+      decimals: 2,
+    });
+
     let age = model.get("age_days");
     let last = performance.now();
     let raf = 0;
@@ -214,14 +239,15 @@ export default {
       if (!track || !track.t) return;
       const month = track.scalars.synodic_month;
 
-      if (model.get("playing")) {
-        age = (age + dt * model.get("speed")) % month;
+      if (play.playing) {
+        age = (age + dt * speed.value) % month;
         if (age < 0) age += month;
       }
       const at = trackSample(track, age);
 
       sunVec.set(at.moon_view_sun[0], at.moon_view_sun[1], at.moon_view_sun[2]);
       moon.uniforms.uSunDir.value.copy(sunVec);
+      moon.uniforms.uExposure.value = light.value;
       moon.uniforms.uAmbient.value =
         0.012 + 0.075 * at.earthshine * (model.get("show_earthshine") ? 1 : 0);
       // Southern-hemisphere observers see the same Moon turned upside down.
@@ -239,6 +265,9 @@ export default {
 
     return () => {
       cancelAnimationFrame(raf);
+      play.dispose();
+      speed.dispose();
+      light.dispose();
       orbit.dispose();
       gate.dispose();
       ro3d.disconnect();

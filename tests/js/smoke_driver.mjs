@@ -62,8 +62,12 @@ function element(tag = "div") {
     remove() {
       el.removed = true;
     },
-    // Cache by selector so a test can inspect the same node the code wrote to.
+    // Only class selectors are used in this codebase, so a crude substring
+    // check against the markup is enough to tell present from absent. Handing
+    // back an element for everything would hide a control that was never
+    // rendered - which throws in a real browser.
     querySelector: (sel) => {
+      if (!String(el.innerHTML).includes(sel.replace(/^\./, ""))) return null;
       if (!found.has(sel)) found.set(sel, element());
       return found.get(sel);
     },
@@ -133,7 +137,11 @@ for (const run of spec.runs) {
 
     // Setup reports a texture failure by writing into the status line rather
     // than throwing, so check that separately.
-    const status = el.querySelector(".es-status").textContent;
+    const text = (sel) => {
+      const node = el.querySelector(sel);
+      return node ? node.textContent : null;
+    };
+    const status = text(".es-status");
     if (String(status).includes("could not load")) throw new Error(status);
 
     // Start from the real clock: render() stamped performance.now(), and a
@@ -147,16 +155,16 @@ for (const run of spec.runs) {
       frames.length = 0; // drop anything else queued; cb re-queues itself
       tick += 16.7;
       cb(tick);
-      clocks.push(el.querySelector(".es-clock").textContent);
+      clocks.push(text(".es-clock"));
       record.frames += 1;
     }
-    record.clock = el.querySelector(".es-clock").textContent;
+    record.clock = text(".es-clock");
     record.clocks = clocks;
-    record.transport = el.querySelector(".es-play").textContent;
+    record.transport = text(".es-play");
     record.readouts = {
-      speed: el.querySelector(".es-ctl-out-speed").textContent,
-      light: el.querySelector(".es-ctl-out-light").textContent,
-      sunlight: el.querySelector(".es-ctl-out-sunlight").textContent,
+      speed: text(".es-ctl-out-speed"),
+      light: text(".es-ctl-out-light"),
+      sunlight: text(".es-ctl-out-sunlight"),
     };
     if (typeof cleanup === "function") cleanup();
     record.ok = record.frames >= Math.min(2, wanted);

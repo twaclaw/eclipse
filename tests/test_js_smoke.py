@@ -75,6 +75,13 @@ def build_runs() -> list[dict]:
             "name": "moonphases",
             "modules": ["earthkit.js", "moonphases.js"],
             "state": widget_state(MoonPhasesWidget()),
+            "frames": 30,
+        },
+        {
+            "name": "moonphases_paused",
+            "modules": ["earthkit.js", "moonphases.js"],
+            "state": widget_state(MoonPhasesWidget(playing=False)),
+            "frames": 30,
         },
         {
             "name": "moonphases_southern",
@@ -150,15 +157,31 @@ def test_the_transport_control_gets_wired_up(smoke):
     """An unwired button leaves its label blank."""
     assert smoke["seasons"]["transport"] == "❙❙"
     assert smoke["seasons_paused"]["transport"] == "▶"
+    assert smoke["moonphases"]["transport"] == "❙❙"
+    assert smoke["moonphases_paused"]["transport"] == "▶"
 
 
 @requires_node
 def test_every_slider_gets_wired_up(smoke):
-    """An unbound slider leaves its readout blank."""
-    readouts = smoke["seasons"]["readouts"]
-    assert readouts["speed"] == "30 d/s"
-    assert readouts["light"] == "1.00 ×"
-    assert readouts["sunlight"] == "0.70 ×"
+    """An unbound slider leaves its readout blank, a missing one reads None."""
+    seasons = smoke["seasons"]["readouts"]
+    assert seasons["speed"] == "30 d/s"
+    assert seasons["light"] == "1.00 ×"
+    assert seasons["sunlight"] == "0.70 ×"
+
+    moon = smoke["moonphases"]["readouts"]
+    assert moon["speed"] == "1.50 d/s"
+    assert moon["light"] == "1.00 ×"
+    assert moon["sunlight"] is None, "the moon has no sun-brightness control"
+
+
+@requires_node
+def test_day_and_night_has_no_control_strip(smoke):
+    """Guards the fake DOM as much as the code: it has to be able to say that
+    something is absent, or a control that was never rendered would pass here
+    and throw in a browser."""
+    assert smoke["daynight"]["transport"] is None
+    assert smoke["daynight"]["readouts"]["speed"] is None
 
 
 @requires_node
@@ -170,3 +193,8 @@ def test_the_transport_actually_drives_the_orbit(smoke):
 
     paused = smoke["seasons_paused"]["clocks"]
     assert len(set(paused)) == 1, "paused, yet the date moved"
+
+    moon = smoke["moonphases"]["clocks"]
+    assert len(set(moon)) > 1, "the moon's age never advanced"
+    assert all("NaN" not in c for c in moon)
+    assert len(set(smoke["moonphases_paused"]["clocks"])) == 1

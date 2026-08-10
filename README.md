@@ -56,10 +56,12 @@ Three things follow from that split and are worth preserving:
   produces the same daily arc - so half the year is free, and the browser
   animates it by interpolating rows.
 
-Play and speed live inside each animation that has them, not in the notebook,
-so they stay reachable when a panel is maximised. That is also the only
+Play, speed and brightness live inside the animations, not in the notebook, so
+they stay reachable when a panel is maximised. That is also the only
 arrangement that works: a notebook cell pushing those values down would re-run
-on every change the widget made and overwrite it.
+on every change the widget made and overwrite it. Everything a widget does
+*not* write back - dates, toggles, the moon's node longitude - stays a marimo
+control.
 
 Two suites cover the browser half without a browser, both skipped if node is
 missing:

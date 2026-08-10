@@ -93,6 +93,8 @@ class MoonPhasesWidget(_Base):
     node_longitude_deg = traitlets.Float(0.0)
 
     age_days = traitlets.Float(0.0).tag(sync=True)
+    #: Brightness of the Moon's sunlit face. Driven from inside the widget.
+    brightness = traitlets.Float(1.0).tag(sync=True)
     show_earthshine = traitlets.Bool(True).tag(sync=True)
     #: The Moon looks upside down from the far side of the equator.
     southern_view = traitlets.Bool(False).tag(sync=True)
