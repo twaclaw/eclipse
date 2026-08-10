@@ -1,0 +1,188 @@
+.es-root {
+  width: 100%;
+  font-family: ui-sans-serif, system-ui, -apple-system, sans-serif;
+}
+
+.es-grid {
+  display: grid;
+  gap: 10px;
+  grid-template-columns: minmax(220px, 0.62fr) minmax(320px, 1fr);
+  align-items: stretch;
+}
+
+@media (max-width: 760px) {
+  .es-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+.es-panel {
+  position: relative;
+  overflow: hidden;
+  border-radius: 10px;
+  background: #04060e;
+  border: 1px solid rgba(140, 170, 220, 0.18);
+}
+
+.es-globe {
+  min-height: 240px;
+}
+
+.es-map {
+  aspect-ratio: 2 / 1;
+}
+
+.es-panel canvas {
+  display: block;
+}
+
+.es-c3d {
+  cursor: grab;
+  touch-action: none;
+}
+
+.es-c3d:active {
+  cursor: grabbing;
+}
+
+.es-c2d {
+  cursor: crosshair;
+}
+
+.es-hint {
+  position: absolute;
+  left: 9px;
+  bottom: 7px;
+  font-size: 10px;
+  letter-spacing: 0.03em;
+  color: rgba(255, 255, 255, 0.42);
+  pointer-events: none;
+}
+
+.es-clock,
+.es-date {
+  position: absolute;
+  right: 9px;
+  top: 7px;
+  font: 600 13px/1 ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-variant-numeric: tabular-nums;
+  color: #ffe3a6;
+  text-shadow: 0 0 8px rgba(0, 0, 0, 0.9);
+  pointer-events: none;
+}
+
+.es-date {
+  color: rgba(255, 255, 255, 0.8);
+  font-weight: 500;
+}
+
+.es-sun-tag {
+  position: absolute;
+  transform: translate(-50%, -50%);
+  font-size: 11px;
+  font-weight: 600;
+  white-space: nowrap;
+  color: #ffd27f;
+  text-shadow: 0 0 7px rgba(0, 0, 0, 0.95);
+  pointer-events: none;
+}
+
+.es-status {
+  padding: 14px;
+  font-size: 12px;
+  opacity: 0.7;
+}
+
+.es-error {
+  color: #ff6b81;
+  opacity: 1;
+}
+
+/* Two panels of equal weight, used by animations 1 and 2. */
+.es-grid-even {
+  grid-template-columns: 1fr 1fr;
+}
+
+.es-orbit,
+.es-moon {
+  aspect-ratio: 4 / 3;
+  min-height: 240px;
+}
+
+/* Full-width panels below the main pair. */
+.es-skypanel,
+.es-sunpanel {
+  margin-top: 10px;
+  height: 260px;
+}
+
+.es-sunpanel {
+  height: 300px;
+}
+
+.es-phase {
+  position: absolute;
+  left: 9px;
+  top: 7px;
+  font: 600 12px/1 ui-sans-serif, system-ui, sans-serif;
+  letter-spacing: 0.02em;
+  color: rgba(255, 255, 255, 0.86);
+  text-shadow: 0 0 8px rgba(0, 0, 0, 0.9);
+  pointer-events: none;
+}
+
+/* Controls live inside the widget, so they survive it being maximised. */
+.es-controls {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px 16px;
+  margin-top: 10px;
+  padding: 7px 12px;
+  border-radius: 10px;
+  background: #070b16;
+  border: 1px solid rgba(140, 170, 220, 0.18);
+}
+
+.es-play {
+  width: 26px;
+  height: 22px;
+  padding: 0;
+  cursor: pointer;
+  border: none;
+  border-radius: 5px;
+  font-size: 10px;
+  line-height: 1;
+  color: #08101f;
+  background: #ffd88a;
+}
+
+.es-play:hover {
+  background: #ffe6b0;
+}
+
+.es-ctl {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+}
+
+.es-ctl-name {
+  font-size: 10px;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: rgba(255, 255, 255, 0.5);
+}
+
+.es-ctl input[type="range"] {
+  width: 96px;
+  accent-color: #ffd88a;
+  cursor: pointer;
+}
+
+.es-ctl > span:last-child {
+  min-width: 52px;
+  font: 500 11px/1 ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-variant-numeric: tabular-nums;
+  color: rgba(255, 255, 255, 0.82);
+}
