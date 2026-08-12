@@ -168,6 +168,8 @@ class EclipsesWidget(_Base):
     node_offset_deg = traitlets.Float(0.0).tag(sync=True)
     #: How far the to-scale side view is zoomed in, 1 being the whole system.
     side_zoom = traitlets.Float(5.0).tag(sync=True)
+    #: Where the time scrubber sits, in hours either side of the alignment.
+    hours = traitlets.Float(0.0).tag(sync=True)
 
     def __init__(self, **kwargs):
         # Slow by default: an eclipse takes hours, and the interesting part is

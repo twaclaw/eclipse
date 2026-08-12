@@ -58,8 +58,10 @@ Three things follow from that split and are worth preserving:
   produces the same daily arc - so half the year is free, and the browser
   animates it by interpolating rows.
 
-Play, speed and brightness live inside the animations, not in the notebook, so
-they stay reachable when a panel is maximised. That is also the only
+Play, speed, brightness and the time scrubber live inside the animations, not
+in the notebook, so they stay reachable when a panel is maximised. The
+scrubber runs with the clock and can be dragged against it: the render loop
+pushes the time in, and that push is ignored while the handle is held. That is also the only
 arrangement that works: a notebook cell pushing those values down would re-run
 on every change the widget made and overwrite it. Everything a widget does
 *not* write back - dates, toggles, the moon's node longitude - stays a marimo

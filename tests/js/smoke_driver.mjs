@@ -82,7 +82,11 @@ function element(tag = "div") {
 }
 
 const frames = [];
-globalThis.window = { devicePixelRatio: 2 };
+globalThis.window = {
+  devicePixelRatio: 2,
+  addEventListener() {},
+  removeEventListener() {},
+};
 globalThis.document = { hidden: false, createElement: () => element("canvas") };
 globalThis.performance = performance;
 globalThis.requestAnimationFrame = (cb) => {
@@ -173,6 +177,7 @@ for (const run of spec.runs) {
       sunlight: text(".es-ctl-out-sunlight"),
       node: text(".es-ctl-out-node"),
       zoom: text(".es-ctl-out-zoom"),
+      when: text(".es-ctl-out-when"),
     };
     record.scale = text(".es-scale");
     if (typeof cleanup === "function") cleanup();

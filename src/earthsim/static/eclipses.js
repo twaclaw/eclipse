@@ -39,6 +39,7 @@ export default {
         sliderHTML("speed", "time"),
         sliderHTML("node", "node"),
         sliderHTML("zoom", "zoom"),
+        sliderHTML("when", "when"),
       )}
       <div class="es-status">loading textures&hellip;</div>`;
 
@@ -539,7 +540,17 @@ export default {
       decimals: 1,
     });
 
-    let hours = 0;
+    const span = (model.get("track").scalars || {}).span_hours || 6;
+    const when = attachScrubber(el, model, {
+      name: "when",
+      trait: "hours",
+      min: -span,
+      max: span,
+      step: 0.05,
+      format: (v) => (v >= 0 ? "+" : "\u2212") + fmtHM(Math.abs(v)),
+    });
+
+    let hours = model.get("hours");
     let last = performance.now();
     let raf = 0;
     const gate = visibilityGate(el);
@@ -556,10 +567,13 @@ export default {
       const lunar = s.kind === "lunar";
       buildSide(track);
 
-      if (play.playing) {
+      if (when.scrubbing) {
+        hours = when.value;
+      } else if (play.playing) {
         hours += dt * speed.value;
         if (hours > s.span_hours) hours = -s.span_hours;
       }
+      when.follow(hours);
 
       const at = trackSample(track, hours);
       at.latitude_deg = gridValueAt(track.grids.latitude_deg, node.value, hours);
@@ -628,6 +642,8 @@ export default {
       play.dispose();
       speed.dispose();
       node.dispose();
+      zoom.dispose();
+      when.dispose();
       gate.dispose();
       ro3d.disconnect();
       roPlane.disconnect();

@@ -30,6 +30,11 @@ export default {
       <div class="es-panel es-skypanel">
         <canvas class="es-csky"></canvas>
       </div>
+      ${controlBar(
+        playHTML(),
+        sliderHTML("speed", "clock"),
+        sliderHTML("when", "when"),
+      )}
       <div class="es-status">loading textures&hellip;</div>`;
 
     const c3d = el.querySelector(".es-c3d");
@@ -378,6 +383,25 @@ export default {
 
     /* ------------------------------------------------------------------ loop */
 
+    const play = attachPlay(el, model);
+    const speed = attachSlider(el, model, {
+      name: "speed",
+      trait: "speed",
+      min: 0,
+      max: 12,
+      step: 0.25,
+      unit: "h/s",
+      decimals: 2,
+    });
+    const when = attachScrubber(el, model, {
+      name: "when",
+      trait: "utc_hour",
+      min: 0,
+      max: 24,
+      step: 0.05,
+      format: (v) => fmtHM(v) + " solar",
+    });
+
     let hours = model.get("utc_hour");
     let last = performance.now();
     let raf = 0;
@@ -385,10 +409,6 @@ export default {
     const sunVec = new THREE.Vector3();
     const proj = new THREE.Vector3();
     const xAxis = new THREE.Vector3(1, 0, 0);
-
-    model.on("change:utc_hour", () => {
-      hours = model.get("utc_hour");
-    });
 
     function frame(now) {
       raf = requestAnimationFrame(frame);
@@ -399,10 +419,13 @@ export default {
       const track = model.get("track");
       if (!track || !track.t) return;
 
-      if (model.get("playing")) {
-        hours = (hours + dt * model.get("speed")) % 24;
+      if (when.scrubbing) {
+        hours = when.value;
+      } else if (play.playing) {
+        hours = (hours + dt * speed.value) % 24;
         if (hours < 0) hours += 24;
       }
+      when.follow(hours);
       const at = trackSample(track, hours);
 
       sunVec.set(at.sun[0], at.sun[1], at.sun[2]);
@@ -437,6 +460,9 @@ export default {
 
     return () => {
       cancelAnimationFrame(raf);
+      play.dispose();
+      speed.dispose();
+      when.dispose();
       orbit.dispose();
       gate.dispose();
       ro3d.disconnect();

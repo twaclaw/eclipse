@@ -38,6 +38,7 @@ export default {
         sliderHTML("speed", "orbit"),
         sliderHTML("light", "earth"),
         sliderHTML("sunlight", "sun"),
+        sliderHTML("when", "when"),
       )}
       <div class="es-panel es-sunpanel">
         <canvas class="es-csun"></canvas>
@@ -381,15 +382,20 @@ export default {
       decimals: 2,
     });
 
+    const when = attachScrubber(el, model, {
+      name: "when",
+      trait: "day_of_year",
+      min: 0,
+      max: 365,
+      step: 0.5,
+      format: (v) => "day " + Math.round(v),
+    });
+
     let day = model.get("day_of_year");
     let last = performance.now();
     let raf = 0;
     const gate = visibilityGate(el);
     const sunVec = new THREE.Vector3();
-
-    model.on("change:day_of_year", () => {
-      day = model.get("day_of_year");
-    });
 
     function frame(now) {
       raf = requestAnimationFrame(frame);
@@ -403,10 +409,13 @@ export default {
       const stretch = model.get("eccentricity_stretch");
       if (builtFor !== stretch) buildOrbit(track, stretch);
 
-      if (play.playing) {
+      if (when.scrubbing) {
+        day = when.value;
+      } else if (play.playing) {
         day = (day + dt * speed.value) % 365;
         if (day < 0) day += 365;
       }
+      when.follow(day);
 
       const at = trackSample(track, day);
       const pos = stretched(at.earth_pos, stretch);
@@ -451,6 +460,7 @@ export default {
       speed.dispose();
       light.dispose();
       sunlight.dispose();
+      when.dispose();
       orbitCam.dispose();
       gate.dispose();
       ro3d.disconnect();

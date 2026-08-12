@@ -44,9 +44,6 @@ def _(mo):
 def _(mo):
     # Play and speed live inside the widget, so they stay reachable when the
     # panel is maximised. Setting them from here too would fight the widget.
-    season_day = mo.ui.slider(
-        0, 365, 1, value=0, label="set day of year", show_value=True
-    )
     season_stretch = mo.ui.slider(
         1, 12, 0.5, value=1.0, label="exaggerate the ellipse (×)", show_value=True
     )
@@ -56,7 +53,7 @@ def _(mo):
     mo.vstack(
         [
             mo.hstack(
-                [season_day, season_stretch, season_follow, season_grat],
+                [season_stretch, season_follow, season_grat],
                 justify="start",
                 gap=1.5,
                 wrap=True,
@@ -64,7 +61,7 @@ def _(mo):
         ],
         gap=0.4,
     )
-    return season_day, season_follow, season_grat, season_stretch
+    return season_follow, season_grat, season_stretch
 
 
 @app.cell(hide_code=True)
@@ -78,8 +75,7 @@ def _(SeasonsWidget, mo):
 
 
 @app.cell(hide_code=True)
-def _(season_day, season_follow, season_grat, season_stretch, seasons_ui):
-    seasons_ui.day_of_year = float(season_day.value)
+def _(season_follow, season_grat, season_stretch, seasons_ui):
     seasons_ui.eccentricity_stretch = float(season_stretch.value)
     seasons_ui.follow_earth = bool(season_follow.value)
     seasons_ui.show_graticule = bool(season_grat.value)
@@ -87,8 +83,8 @@ def _(season_day, season_follow, season_grat, season_stretch, seasons_ui):
 
 
 @app.cell(hide_code=True)
-def _(ast, date_label, duration, lat_label, mo, np, season_day, seasons_ui):
-    _doy = float(season_day.value)
+def _(ast, date_label, duration, lat_label, mo, np, seasons_ui):
+    _doy = float(seasons_ui.day_of_year)
     _lat = float(seasons_ui.marker[0])
     _dec = ast.solar_declination(ast.sun_ecliptic_longitude(_doy))
     _distance = float(ast.sun_distance_au(_doy))
@@ -122,13 +118,13 @@ def _(ast, date_label, duration, lat_label, mo, np, season_day, seasons_ui):
 def _(mo):
     mo.md(r"""
     /// tip | Try this
-    Hit pause in the control strip and set the day to **3** —
+    Hit pause in the control strip and drag **when** to day **3** —
     Earth's closest approach to the sun, at
     0.983 AU. It is the depth of northern winter. Now set it to **186**, the
     furthest point at 1.017 AU, in the middle of northern summer. Distance is
     doing the opposite of what the seasons do.
 
-    Then press play, ease the speed down until the orbit crawls, and click
+    Then press play, ease the orbit speed down until it crawls, and click
     somewhere above the Arctic circle — northern Greenland, or
     Svalbard at about 78°N — and let it run. The arch lifts clear of the
     horizon for weeks on end in summer, then sinks entirely beneath it in

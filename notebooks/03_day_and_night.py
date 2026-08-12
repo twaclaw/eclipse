@@ -59,14 +59,9 @@ def _(mo):
 
 @app.cell(hide_code=True)
 def _(mo):
-    play = mo.ui.switch(True, label="play")
-    speed = mo.ui.slider(
-        0, 12, 0.25, value=2.0, label="speed (sim hours / second)", show_value=True
-    )
+    # Play, speed and the time scrubber live inside the widget, so they stay
+    # reachable when the panel is maximised.
     doy = mo.ui.slider(1, 365, 1, value=172, label="day of year", show_value=True)
-    utc = mo.ui.slider(
-        0, 24, 0.05, value=12.0, label="set solar time (h)", show_value=True
-    )
     twilight = mo.ui.slider(
         0.5, 18, 0.5, value=6.0, label="twilight width (deg)", show_value=True
     )
@@ -76,9 +71,8 @@ def _(mo):
 
     mo.vstack(
         [
-            mo.hstack([play, speed, doy], justify="start", gap=1.5, wrap=True),
             mo.hstack(
-                [utc, twilight, lights, graticule, sky],
+                [doy, twilight, lights, graticule, sky],
                 justify="start",
                 gap=1.5,
                 wrap=True,
@@ -86,7 +80,7 @@ def _(mo):
         ],
         gap=0.4,
     )
-    return doy, graticule, lights, play, sky, speed, twilight, utc
+    return doy, graticule, lights, sky, twilight
 
 
 @app.cell(hide_code=True)
@@ -100,18 +94,15 @@ def _(DayNightWidget, mo):
 
 
 @app.cell(hide_code=True)
-def _(daynight_ui, doy, graticule, lights, play, sky, speed, twilight, utc):
+def _(daynight_ui, doy, graticule, lights, sky, twilight):
     # Pushes the control values onto the live widget. Changing the date rebuilds
     # the track table; traitlets only notifies on a real change, so nudging one
     # slider never disturbs the running clock.
     daynight_ui.day_of_year = float(doy.value)
     daynight_ui.twilight_deg = float(twilight.value)
-    daynight_ui.speed = float(speed.value)
-    daynight_ui.playing = bool(play.value)
     daynight_ui.show_lights = bool(lights.value)
     daynight_ui.show_graticule = bool(graticule.value)
     daynight_ui.show_sky = bool(sky.value)
-    daynight_ui.utc_hour = float(utc.value)
     return
 
 

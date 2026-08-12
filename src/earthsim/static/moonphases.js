@@ -32,6 +32,7 @@ export default {
         playHTML(),
         sliderHTML("speed", "cycle"),
         sliderHTML("light", "moon"),
+        sliderHTML("when", "when"),
       )}
       <div class="es-status">loading textures&hellip;</div>`;
 
@@ -221,15 +222,21 @@ export default {
       decimals: 2,
     });
 
+    const month = (model.get("track").scalars || {}).synodic_month || 29.53;
+    const when = attachScrubber(el, model, {
+      name: "when",
+      trait: "age_days",
+      min: 0,
+      max: month,
+      step: 0.05,
+      format: (v) => "day " + Number(v).toFixed(1),
+    });
+
     let age = model.get("age_days");
     let last = performance.now();
     let raf = 0;
     const gate = visibilityGate(el);
     const sunVec = new THREE.Vector3();
-
-    model.on("change:age_days", () => {
-      age = model.get("age_days");
-    });
 
     function frame(now) {
       raf = requestAnimationFrame(frame);
@@ -239,12 +246,14 @@ export default {
 
       const track = model.get("track");
       if (!track || !track.t) return;
-      const month = track.scalars.synodic_month;
 
-      if (play.playing) {
+      if (when.scrubbing) {
+        age = when.value;
+      } else if (play.playing) {
         age = (age + dt * speed.value) % month;
         if (age < 0) age += month;
       }
+      when.follow(age);
       const at = trackSample(track, age);
 
       sunVec.set(at.moon_view_sun[0], at.moon_view_sun[1], at.moon_view_sun[2]);
@@ -272,6 +281,7 @@ export default {
       play.dispose();
       speed.dispose();
       light.dispose();
+      when.dispose();
       orbit.dispose();
       gate.dispose();
       ro3d.disconnect();

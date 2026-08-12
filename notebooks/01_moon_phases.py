@@ -47,9 +47,6 @@ def _(mo):
 def _(mo):
     # Play, speed and brightness live inside the widget, so they stay reachable
     # when the panel is maximised. Setting them here too would fight it.
-    moon_age = mo.ui.slider(
-        0, 29.5, 0.1, value=0.0, label="set age (days)", show_value=True
-    )
     moon_node = mo.ui.slider(
         0, 360, 5, value=0, label="node longitude (deg)", show_value=True
     )
@@ -59,7 +56,7 @@ def _(mo):
     mo.vstack(
         [
             mo.hstack(
-                [moon_age, moon_node, moon_shine, moon_south],
+                [moon_node, moon_shine, moon_south],
                 justify="start",
                 gap=1.5,
                 wrap=True,
@@ -67,7 +64,7 @@ def _(mo):
         ],
         gap=0.4,
     )
-    return moon_age, moon_node, moon_shine, moon_south
+    return moon_node, moon_shine, moon_south
 
 
 @app.cell(hide_code=True)
@@ -81,8 +78,7 @@ def _(MoonPhasesWidget, mo):
 
 
 @app.cell(hide_code=True)
-def _(moon_age, moon_node, moon_shine, moon_south, moon_ui):
-    moon_ui.age_days = float(moon_age.value)
+def _(moon_node, moon_shine, moon_south, moon_ui):
     moon_ui.node_longitude_deg = float(moon_node.value)
     moon_ui.show_earthshine = bool(moon_shine.value)
     moon_ui.southern_view = bool(moon_south.value)
@@ -90,10 +86,11 @@ def _(moon_age, moon_node, moon_shine, moon_south, moon_ui):
 
 
 @app.cell(hide_code=True)
-def _(ast, mo, moon_age, moon_node, np, phase_name, phase_name_es):
+def _(ast, mo, moon_node, moon_ui, np, phase_name, phase_name_es):
     # Static analysis of the age on the slider, computed in Python.
-    _elongation = ast.moon_elongation(moon_age.value)
-    _lam = ast.sun_ecliptic_longitude(172.0 + moon_age.value)
+    _age = float(moon_ui.age_days)
+    _elongation = ast.moon_elongation(_age)
+    _lam = ast.sun_ecliptic_longitude(172.0 + _age)
     _beta = ast.moon_ecliptic_latitude(_lam, _elongation, np.radians(moon_node.value))
     _beta_deg = float(np.degrees(_beta))
     _lit = float(ast.illuminated_fraction(_elongation))
@@ -114,7 +111,7 @@ def _(ast, mo, moon_age, moon_node, np, phase_name, phase_name_es):
         f"""
     | | |
     |---|---|
-    | Age | {moon_age.value:.1f} days of {ast.SYNODIC_MONTH:.2f} |
+    | Age | {_age:.1f} days of {ast.SYNODIC_MONTH:.2f} |
     | Phase | {phase_name(_elongation)} · **{phase_name_es(_elongation).upper()}** |
     | Lit as seen from Earth | {_lit * 100:.0f}% |
     | Elongation from the sun | {np.degrees(_elongation) % 360:.0f}° |
@@ -129,10 +126,10 @@ def _(ast, mo, moon_age, moon_node, np, phase_name, phase_name_es):
 def _(mo):
     mo.md(r"""
     /// tip | Try this
-    Pause with the control strip and drag **age** slowly from 0 to 29.5. The Moon on
+    Pause with the control strip and drag **when** slowly from 0 to 29.5. The Moon on
     the right never stops being half lit; only our viewing angle changes.
 
-    Then leave the age at **14.8 days** (full moon) and sweep **node
+    Then leave **when** at **14.8 days** (full moon) and sweep **node
     longitude**. The phase on the right does not budge, because the tilt is
     irrelevant to it — but the height above the ecliptic swings through five
     degrees, and only for a narrow band of node angles does an eclipse become

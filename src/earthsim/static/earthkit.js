@@ -505,6 +505,80 @@ function attachSlider(el, model, spec) {
   };
 }
 
+/* A time slider that runs with the animation and can be dragged against it.
+ *
+ * Different from attachSlider in one way that matters: the render loop pushes
+ * the clock in through follow(), so the handle tracks playback, but that push
+ * is ignored while the user has hold of it. Otherwise every frame would yank
+ * the handle back out from under the pointer.
+ */
+function attachScrubber(el, model, spec) {
+  const range = el.querySelector(".es-ctl-" + spec.name);
+  const out = el.querySelector(".es-ctl-out-" + spec.name);
+  range.min = spec.min;
+  range.max = spec.max;
+  range.step = spec.step;
+
+  const show = spec.format
+    ? spec.format
+    : (v) => Number(v).toFixed(spec.decimals || 0) + (spec.unit ? " " + spec.unit : "");
+  const state = { value: model.get(spec.trait), scrubbing: false };
+  const paint = () => {
+    range.value = state.value;
+    out.textContent = show(state.value);
+  };
+
+  const onDown = () => {
+    state.scrubbing = true;
+  };
+  const onInput = () => {
+    state.scrubbing = true;
+    state.value = Number(range.value);
+    paint();
+  };
+  const onRelease = () => {
+    if (!state.scrubbing) return;
+    state.scrubbing = false;
+    // Tell Python where we stopped, so its readouts follow. Once only, on
+    // release, rather than throughout the drag.
+    model.set(spec.trait, state.value);
+    model.save_changes();
+  };
+
+  range.addEventListener("pointerdown", onDown);
+  range.addEventListener("input", onInput);
+  range.addEventListener("change", onRelease);
+  // A drag that ends off the slider still counts as letting go.
+  window.addEventListener("pointerup", onRelease);
+
+  model.on("change:" + spec.trait, () => {
+    if (state.scrubbing) return;
+    state.value = model.get(spec.trait);
+    paint();
+  });
+  paint();
+
+  return {
+    get value() {
+      return state.value;
+    },
+    get scrubbing() {
+      return state.scrubbing;
+    },
+    follow(value) {
+      if (state.scrubbing) return;
+      state.value = value;
+      paint();
+    },
+    dispose() {
+      range.removeEventListener("pointerdown", onDown);
+      range.removeEventListener("input", onInput);
+      range.removeEventListener("change", onRelease);
+      window.removeEventListener("pointerup", onRelease);
+    },
+  };
+}
+
 /* ------------------------------------------------------- pointer navigation */
 
 /* Hand-rolled rather than pulled from three's addons, so there is only one

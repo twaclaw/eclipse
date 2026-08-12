@@ -14,6 +14,7 @@ Skipped when node is not installed.
 from __future__ import annotations
 
 import json
+import re
 import shutil
 import subprocess
 from pathlib import Path
@@ -202,6 +203,7 @@ def test_the_transport_control_gets_wired_up(smoke):
     assert smoke["seasons_paused"]["transport"] == "▶"
     assert smoke["moonphases"]["transport"] == "❙❙"
     assert smoke["eclipse_lunar"]["transport"] == "❙❙"
+    assert smoke["daynight"]["transport"] == "❙❙"
     assert smoke["moonphases_paused"]["transport"] == "▶"
 
 
@@ -245,12 +247,39 @@ def test_the_side_view_reports_how_much_is_in_frame(smoke):
 
 
 @requires_node
-def test_day_and_night_has_no_control_strip(smoke):
-    """Guards the fake DOM as much as the code: it has to be able to say that
+def test_the_fake_dom_can_still_report_something_absent(smoke):
+    """Guards the harness as much as the code: it has to be able to say that
     something is absent, or a control that was never rendered would pass here
     and throw in a browser."""
-    assert smoke["daynight"]["transport"] is None
-    assert smoke["daynight"]["readouts"]["speed"] is None
+    assert smoke["daynight"]["readouts"]["node"] is None
+    assert smoke["daynight"]["scale"] is None
+    assert smoke["moonphases"]["readouts"]["sunlight"] is None
+
+
+@requires_node
+@pytest.mark.parametrize(
+    ("name", "pattern"),
+    [
+        ("daynight", r"^\d{2}:\d{2} solar$"),
+        ("seasons", r"^day \d+$"),
+        ("moonphases", r"^day \d+\.\d$"),
+        ("eclipse_lunar", r"^[+\u2212]\d{2}:\d{2}$"),
+    ],
+)
+def test_every_animation_has_a_time_scrubber(name, pattern, smoke):
+    assert re.match(pattern, smoke[name]["readouts"]["when"] or ""), (
+        f"{name} scrubber reads {smoke[name]['readouts']['when']!r}"
+    )
+
+
+@requires_node
+def test_the_scrubber_follows_playback_and_stops_when_paused(smoke):
+    """The handle has to track the clock, or it is just a second control that
+    disagrees with the animation."""
+    assert smoke["seasons"]["readouts"]["when"] != "day 0"
+    assert smoke["moonphases"]["readouts"]["when"] != "day 0.0"
+    assert smoke["seasons_paused"]["readouts"]["when"] == "day 0"
+    assert smoke["moonphases_paused"]["readouts"]["when"] == "day 0.0"
 
 
 @requires_node
