@@ -18,7 +18,7 @@ import numpy as np
 import traitlets
 
 from .astronomy import OBLIQUITY
-from .track import day_track, moon_track, year_track
+from .track import day_track, eclipse_track, moon_track, year_track
 
 _STATIC = pathlib.Path(__file__).parent / "static"
 _CSS = (_STATIC / "widget.css").read_text()
@@ -148,4 +148,37 @@ class SeasonsWidget(_Base):
 
     @traitlets.observe("marker")
     def _on_marker(self, _change) -> None:
+        self._rebuild()
+
+
+class EclipsesWidget(_Base):
+    """Animation 4: why an alignment only sometimes becomes an eclipse."""
+
+    _esm = _bundle("earthkit.js", "eclipses.js")
+
+    #: "lunar" or "solar". Changing it rebuilds the track.
+    kind = traitlets.Unicode("lunar")
+    #: The Moon's distance decides whether a central solar eclipse is total or
+    #: annular, so it is worth being able to move.
+    moon_distance_km = traitlets.Float(365_000.0)
+
+    #: How far the alignment sits from the Moon's orbital node. Driven from
+    #: inside the widget: latitude ships as a grid over this, so dragging it
+    #: needs no round trip.
+    node_offset_deg = traitlets.Float(0.0).tag(sync=True)
+    #: How far the to-scale side view is zoomed in, 1 being the whole system.
+    side_zoom = traitlets.Float(5.0).tag(sync=True)
+
+    def __init__(self, **kwargs):
+        # Slow by default: an eclipse takes hours, and the interesting part is
+        # the shadow creeping rather than the clock running.
+        kwargs.setdefault("speed", 0.25)
+        super().__init__(**kwargs)
+        self._rebuild()
+
+    def _rebuild(self) -> None:
+        self.track = eclipse_track(self.kind, self.moon_distance_km)
+
+    @traitlets.observe("kind", "moon_distance_km")
+    def _on_geometry(self, _change) -> None:
         self._rebuild()

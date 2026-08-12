@@ -27,6 +27,7 @@ export default {
           <div class="es-phase"></div>
         </div>
       </div>
+      <div class="es-bigname"></div>
       ${controlBar(
         playHTML(),
         sliderHTML("speed", "cycle"),
@@ -38,6 +39,7 @@ export default {
     const c3d = el.querySelector(".es-c3d");
     const clockEl = el.querySelector(".es-clock");
     const phaseEl = el.querySelector(".es-phase");
+    const bigNameEl = el.querySelector(".es-bigname");
     const status = el.querySelector(".es-status");
 
     let THREE, moonImg, earthImg;
@@ -260,6 +262,8 @@ export default {
       clockEl.textContent = "day " + age.toFixed(1) + " of " + month.toFixed(1);
       phaseEl.textContent =
         at.phase + " · " + Math.round(at.illuminated * 100) + "%";
+      // Python decides the wording; the stylesheet puts it in capitals.
+      bigNameEl.textContent = at.phase_es;
     }
     raf = requestAnimationFrame(frame);
 

@@ -13,7 +13,7 @@ const POLAR = 90 - TROPIC;
 const TEX_BASE =
   "https://cdn.jsdelivr.net/gh/mrdoob/three.js@r160/examples/textures/planets/";
 const TEX = {
-  day: TEX_BASE + "earth_atmos_2048.jpg",
+  day: TEX_BASE + "earth_atmos_4096.jpg",
   night: TEX_BASE + "earth_lights_2048.png",
   moon: TEX_BASE + "moon_1024.jpg",
 };
@@ -140,6 +140,16 @@ function gridRowAt(g, row) {
   return out;
 }
 
+/* One cell of a 2-D field, interpolated in both directions. */
+function gridValueAt(g, row, col) {
+  const values = gridRowAt(g, row);
+  const span = Math.max(1e-9, g.col_step);
+  const pos = Math.max(0, Math.min(g.cols - 1, (col - g.col_start) / span));
+  const i = Math.max(0, Math.min(g.cols - 2, Math.floor(pos)));
+  const f = g.cols < 2 ? 0 : pos - i;
+  return values[i] + (values[i + 1] - values[i]) * f;
+}
+
 /* The value a column of a grid stands for. */
 function gridColValue(g, col) {
   return g.col_start + col * g.col_step;
@@ -167,10 +177,12 @@ const BODY_VERT = `
 varying vec2 vUv;
 varying vec3 vNormalW;
 varying vec3 vViewW;
+varying vec3 vPosW;
 void main() {
   vUv = uv;
   vNormalW = normalize(mat3(modelMatrix) * normal);
   vec4 wp = modelMatrix * vec4(position, 1.0);
+  vPosW = wp.xyz;
   vViewW = normalize(cameraPosition - wp.xyz);
   gl_Position = projectionMatrix * viewMatrix * wp;
 }`;
@@ -187,9 +199,14 @@ uniform float uAmbient;
 uniform float uTwilight;
 uniform float uAtmo;
 uniform float uExposure;
+uniform float uLimb;
+uniform vec2  uShadowCentre;
+uniform float uUmbraR;
+uniform float uPenumbraR;
 varying vec2 vUv;
 varying vec3 vNormalW;
 varying vec3 vViewW;
+varying vec3 vPosW;
 void main() {
   vec3  n   = normalize(vNormalW);
   float c   = dot(n, normalize(uSunDir));
@@ -198,7 +215,7 @@ void main() {
   vec3 day   = texture2D(uDay, vUv).rgb;
   vec3 night = texture2D(uNight, vUv).rgb;
 
-  vec3 lit  = day * (0.04 + 1.06 * pow(lam, 0.85)) * uExposure;
+  vec3 lit  = day * (0.04 + 1.06 * pow(lam, uLimb)) * uExposure;
   vec3 dark = night * uNightGain + day * uAmbient;
 
   float t = smoothstep(-uTwilight, uTwilight, c);
@@ -211,6 +228,20 @@ void main() {
   // blue atmospheric limb, brightest on the sunlit side
   float rim = pow(1.0 - max(dot(n, normalize(vViewW)), 0.0), 3.0);
   col += vec3(0.25, 0.45, 0.95) * rim * uAtmo * (0.12 + 0.88 * t);
+
+  // Another body's shadow falling across this one. Radii arrive in units of
+  // this body's own radius, measured in the view plane, so the projected edge
+  // is simply a circle. Off unless a caller sets a positive umbra.
+  if (uUmbraR > 0.0) {
+    float d = length(vPosW.xy - uShadowCentre);
+    float shade = smoothstep(uUmbraR, uPenumbraR, d);
+    float inUmbra = 1.0 - smoothstep(uUmbraR - 0.05, uUmbraR + 0.05, d);
+    vec3 dimmed = col * mix(0.18, 1.0, shade);
+    // Sunlight bent through the eclipsing planet's air, which is what stops
+    // a totally eclipsed moon going black.
+    vec3 copper = col * vec3(0.95, 0.32, 0.13) * 0.30;
+    col = mix(dimmed, copper, inUmbra);
+  }
 
   gl_FragColor = vec4(col, 1.0);
 }`;
@@ -264,6 +295,12 @@ function buildBody(THREE, opts) {
     uTwilight: { value: opts.twilight === undefined ? 0.1 : opts.twilight },
     uAtmo: { value: opts.atmosphere === undefined ? 1 : opts.atmosphere },
     uExposure: { value: opts.exposure === undefined ? 1 : opts.exposure },
+    // A full moon looks flat, not like a shaded ball: the regolith throws
+    // light straight back at the sun. A low exponent reproduces that.
+    uLimb: { value: opts.limbDarkening === undefined ? 0.85 : opts.limbDarkening },
+    uShadowCentre: { value: new THREE.Vector2(0, 0) },
+    uUmbraR: { value: -1 },
+    uPenumbraR: { value: -1 },
   };
 
   const radius = opts.radius || 1;
@@ -455,6 +492,12 @@ function attachSlider(el, model, spec) {
     get value() {
       return state.value;
     },
+    /* For controls that can also be driven another way, such as a wheel. */
+    set(value) {
+      state.value = Math.max(spec.min, Math.min(spec.max, value));
+      paint();
+    },
+    commit,
     dispose() {
       range.removeEventListener("input", onInput);
       range.removeEventListener("change", commit);
@@ -515,6 +558,90 @@ function attachOrbit(dom, camera, opts) {
       Math.max(minR, st.radius * Math.exp(e.deltaY * 0.0012)),
     );
     apply();
+  };
+
+  dom.addEventListener("pointerdown", onDown);
+  dom.addEventListener("pointermove", onMove);
+  dom.addEventListener("pointerup", onUp);
+  dom.addEventListener("pointercancel", onUp);
+  dom.addEventListener("wheel", onWheel, { passive: false });
+  apply();
+
+  return {
+    state: st,
+    apply,
+    dispose() {
+      dom.removeEventListener("pointerdown", onDown);
+      dom.removeEventListener("pointermove", onMove);
+      dom.removeEventListener("pointerup", onUp);
+      dom.removeEventListener("pointercancel", onUp);
+      dom.removeEventListener("wheel", onWheel);
+    },
+  };
+}
+
+/* Turntable for an orthographic view.
+ *
+ * Orthographic cameras do not zoom by moving, so the wheel resizes the frustum
+ * instead and the distance is fixed. Drag turns the scene; the projection stays
+ * parallel, so a view built to scale is still to scale from any angle.
+ */
+function attachOrthoView(dom, camera, opts) {
+  const st = {
+    yaw: (opts && opts.yaw) || 0,
+    pitch: (opts && opts.pitch) || 0,
+    zoom: (opts && opts.zoom) || 1,
+    span: (opts && opts.span) || 10,
+    aspect: 3,
+    target: [0, 0, 0],
+  };
+  const minZoom = (opts && opts.minZoom) || 1;
+  const maxZoom = (opts && opts.maxZoom) || 20;
+  const onZoom = (opts && opts.onZoom) || (() => {});
+
+  function apply() {
+    const halfW = st.span / (2 * st.zoom);
+    const halfH = halfW / Math.max(0.2, st.aspect);
+    camera.left = -halfW;
+    camera.right = halfW;
+    camera.top = halfH;
+    camera.bottom = -halfH;
+    camera.updateProjectionMatrix();
+    const away = Math.max(400, st.span * 4);
+    camera.position.set(
+      st.target[0] + away * Math.cos(st.pitch) * Math.sin(st.yaw),
+      st.target[1] + away * Math.sin(st.pitch),
+      st.target[2] + away * Math.cos(st.pitch) * Math.cos(st.yaw),
+    );
+    camera.lookAt(st.target[0], st.target[1], st.target[2]);
+  }
+
+  let drag = null;
+  const onDown = (e) => {
+    drag = { x: e.clientX, y: e.clientY };
+    dom.setPointerCapture(e.pointerId);
+  };
+  const onMove = (e) => {
+    if (!drag) return;
+    st.yaw += (e.clientX - drag.x) * 0.006;
+    st.pitch = Math.max(-1.2, Math.min(1.2, st.pitch + (e.clientY - drag.y) * 0.006));
+    drag = { x: e.clientX, y: e.clientY };
+    apply();
+  };
+  const onUp = (e) => {
+    drag = null;
+    try {
+      dom.releasePointerCapture(e.pointerId);
+    } catch (_) {}
+  };
+  const onWheel = (e) => {
+    e.preventDefault();
+    st.zoom = Math.max(
+      minZoom,
+      Math.min(maxZoom, st.zoom * Math.exp(-e.deltaY * 0.0015)),
+    );
+    apply();
+    onZoom(st.zoom);
   };
 
   dom.addEventListener("pointerdown", onDown);
@@ -605,6 +732,88 @@ function polyline(ctx, points, style, width, dash) {
   points.forEach(([x, y], i) => (i ? ctx.lineTo(x, y) : ctx.moveTo(x, y)));
   ctx.stroke();
   ctx.restore();
+}
+
+/* Projects an equirectangular texture onto a disc, the way a globe looks from
+ * far away. Returns a canvas with transparent corners, ready to blit.
+ *
+ * Used where a photographic Earth is wanted in a 2-D panel: drawing the flat
+ * texture into a circle would look like a sticker, not a planet.
+ */
+function globeDisc(img, size, centreLonDeg, sunlit) {
+  const source = document.createElement("canvas");
+  source.width = img.width;
+  source.height = img.height;
+  const sctx = source.getContext("2d");
+  sctx.drawImage(img, 0, 0);
+  let texels;
+  try {
+    texels = sctx.getImageData(0, 0, img.width, img.height).data;
+  } catch (_) {
+    // Reading pixels back needs the image to have arrived with CORS headers.
+    // If it ever does not, fall back to a plain shaded ball rather than
+    // taking the whole panel down.
+    return shadedDisc(size, "#4f7fb8");
+  }
+
+  const out = document.createElement("canvas");
+  out.width = size;
+  out.height = size;
+  const octx = out.getContext("2d");
+  const pixels = octx.createImageData(size, size);
+  const radius = size / 2;
+
+  for (let py = 0; py < size; py++) {
+    const v = (py - radius + 0.5) / radius;
+    for (let px = 0; px < size; px++) {
+      const u = (px - radius + 0.5) / radius;
+      const rho = u * u + v * v;
+      const at = (py * size + px) * 4;
+      if (rho > 1) {
+        pixels.data[at + 3] = 0;
+        continue;
+      }
+      const z = Math.sqrt(1 - rho);
+      const lat = Math.asin(Math.max(-1, Math.min(1, -v))) / DEG;
+      const lon = centreLonDeg + Math.atan2(u, z) / DEG;
+      const sx = Math.min(
+        img.width - 1,
+        Math.max(0, Math.floor((((lon + 180) % 360 + 360) % 360) / 360 * img.width)),
+      );
+      const sy = Math.min(
+        img.height - 1,
+        Math.max(0, Math.floor(((90 - lat) / 180) * img.height)),
+      );
+      const from = (sy * img.width + sx) * 4;
+      // A little limb darkening, so the edge falls away like a sphere.
+      const shade = sunlit === false ? 1 : 0.55 + 0.45 * z;
+      pixels.data[at] = texels[from] * shade;
+      pixels.data[at + 1] = texels[from + 1] * shade;
+      pixels.data[at + 2] = texels[from + 2] * shade;
+      pixels.data[at + 3] = 255;
+    }
+  }
+  octx.putImageData(pixels, 0, 0);
+  return out;
+}
+
+/* A plain lit sphere, for when the real texture cannot be read back. */
+function shadedDisc(size, colour) {
+  const out = document.createElement("canvas");
+  out.width = size;
+  out.height = size;
+  const ctx = out.getContext("2d");
+  const g = ctx.createRadialGradient(
+    size * 0.36, size * 0.32, size * 0.05,
+    size * 0.5, size * 0.5, size * 0.5,
+  );
+  g.addColorStop(0, colour);
+  g.addColorStop(1, "#0a1424");
+  ctx.fillStyle = g;
+  ctx.beginPath();
+  ctx.arc(size / 2, size / 2, size / 2, 0, Math.PI * 2);
+  ctx.fill();
+  return out;
 }
 
 /* Equirectangular projection, shared by every flat map here. */

@@ -12,8 +12,14 @@ import numpy as np
 import pytest
 
 from earthsim import astronomy as ast
-from earthsim.labels import SEASON_DAYS, date_label
-from earthsim.track import Track, day_track, moon_track, year_track
+from earthsim.labels import (
+    PHASE_NAMES_ES,
+    SEASON_DAYS,
+    date_label,
+    phase_name,
+    phase_name_es,
+)
+from earthsim.track import Track, day_track, eclipse_track, moon_track, year_track
 
 
 def declination_on(day_of_year):
@@ -303,6 +309,25 @@ def test_moon_track_covers_exactly_one_synodic_month():
     assert lit[-1] == pytest.approx(0.0, abs=1e-9)
 
 
+def test_spanish_phase_names_switch_at_the_same_instants():
+    """The banner and the readout must never disagree about the phase."""
+    track = moon_track()
+    english = track["steps"]["phase"]
+    spanish = track["steps"]["phase_es"]
+    assert len(english) == len(spanish)
+    for (when_en, name_en), (when_es, name_es) in zip(english, spanish, strict=True):
+        assert when_en == when_es
+        assert name_es == PHASE_NAMES_ES[name_en]
+
+
+def test_every_phase_has_a_spanish_name():
+    from earthsim.labels import PHASE_NAMES
+
+    assert set(PHASE_NAMES_ES) == set(PHASE_NAMES)
+    for elongation in np.linspace(0, 2 * np.pi, 400):
+        assert phase_name_es(elongation) == PHASE_NAMES_ES[phase_name(elongation)]
+
+
 def test_moon_phase_steps_run_through_the_cycle_in_order():
     names = [name for _, name in moon_track()["steps"]["phase"]]
     assert names[0] == "New moon"
@@ -432,3 +457,146 @@ def test_date_label_names_the_season_boundaries():
     assert "December solstice" in date_label(356)
     assert date_label(1).startswith("Jan 1")
     assert "solstice" not in date_label(200)
+
+
+# ------------------------------------------------------------- 4. eclipses
+
+
+def test_shadow_sizes_match_the_almanac():
+    umbra, penumbra = ast.shadow_radius_km(ast.EARTH_RADIUS_KM, ast.MOON_DISTANCE_KM)
+    assert umbra == pytest.approx(4600.0, abs=20.0)
+    assert penumbra == pytest.approx(8175.0, abs=20.0)
+    assert umbra / ast.MOON_RADIUS_KM == pytest.approx(2.65, abs=0.02)
+
+
+def test_angular_radii_match_the_almanac():
+    assert ast.angular_radius_deg(
+        ast.MOON_RADIUS_KM, ast.MOON_DISTANCE_KM
+    ) == pytest.approx(0.259, abs=0.002)
+    assert ast.angular_radius_deg(ast.SUN_RADIUS_KM, ast.AU_KM) == pytest.approx(
+        0.2666, abs=0.002
+    )
+
+
+def test_the_moons_shadow_only_just_reaches_us():
+    """Why annular eclipses happen at all: at its mean distance the Moon's
+    umbra closes to a point some 45 km short of Earth."""
+    at_mean, _ = ast.shadow_radius_km(ast.MOON_RADIUS_KM, ast.MOON_DISTANCE_KM)
+    at_perigee, _ = ast.shadow_radius_km(ast.MOON_RADIUS_KM, ast.MOON_PERIGEE_KM)
+    at_apogee, _ = ast.shadow_radius_km(ast.MOON_RADIUS_KM, ast.MOON_APOGEE_KM)
+    assert at_mean < 0
+    assert at_perigee > 0  # totality, on a track about a hundred km wide
+    assert at_apogee < at_mean
+
+
+@pytest.mark.parametrize(
+    ("distance", "expected"),
+    [
+        (ast.MOON_PERIGEE_KM, "total"),
+        (ast.MOON_DISTANCE_KM, "annular"),
+        (ast.MOON_APOGEE_KM, "annular"),
+    ],
+)
+def test_a_dead_central_solar_eclipse_turns_on_distance(distance, expected):
+    moon = ast.angular_radius_deg(ast.MOON_RADIUS_KM, distance)
+    sun = ast.angular_radius_deg(ast.SUN_RADIUS_KM, ast.AU_KM)
+    assert ast.solar_eclipse_kind(0.0, moon, sun) == expected
+
+
+def test_one_degree_of_latitude_is_a_whole_earth_radius_off_the_axis():
+    """The claim the edge-on panel is drawn to make."""
+    offset_km = ast.MOON_DISTANCE_KM * np.radians(1.0)
+    assert offset_km / ast.EARTH_RADIUS_KM == pytest.approx(1.05, abs=0.02)
+
+
+def _closest_approach(node_offset_deg, span_hours=6.0):
+    hours = np.linspace(-span_hours, span_hours, 4001)
+    return float(
+        np.min(
+            ast.separation_deg(
+                ast.syzygy_longitude_offset_deg(hours),
+                ast.moon_ecliptic_latitude_at_node_offset(node_offset_deg, hours),
+            )
+        )
+    )
+
+
+def test_an_alignment_on_the_node_is_a_dead_central_eclipse():
+    assert _closest_approach(0.0) == pytest.approx(0.0, abs=1e-6)
+
+
+@pytest.mark.parametrize(
+    ("node_offset", "expected"),
+    [(0.0, "total"), (5.0, "partial"), (11.0, "penumbral"), (17.0, "none")],
+)
+def test_lunar_eclipses_fade_out_as_the_alignment_leaves_the_node(
+    node_offset, expected
+):
+    """Drag away from the node and the eclipse degrades, then stops.
+
+    The boundaries are read off the model, not asserted from memory: total out
+    to about 4.7 degrees, umbral partial to 10.7, penumbral to 16.6.
+    """
+    umbra, penumbra = ast.shadow_radius_km(ast.EARTH_RADIUS_KM, ast.MOON_DISTANCE_KM)
+    assert (
+        ast.lunar_eclipse_kind(
+            _closest_approach(node_offset),
+            ast.angular_radius_deg(ast.MOON_RADIUS_KM, ast.MOON_DISTANCE_KM),
+            ast.angular_radius_deg(umbra, ast.MOON_DISTANCE_KM),
+            ast.angular_radius_deg(penumbra, ast.MOON_DISTANCE_KM),
+        )
+        == expected
+    )
+
+
+def test_the_latitude_grid_is_indexed_by_node_offset_then_time():
+    track = eclipse_track("lunar")
+    field = track["grids"]["latitude_deg"]
+    values = np.array(field["values"]).reshape(field["rows"], field["cols"])
+    offsets = field["row_start"] + np.arange(field["rows"]) * field["row_step"]
+    hours = field["col_start"] + np.arange(field["cols"]) * field["col_step"]
+    for row in (0, field["rows"] // 2, field["rows"] - 1):
+        expected = ast.moon_ecliptic_latitude_at_node_offset(offsets[row], hours)
+        assert values[row] == pytest.approx(expected, abs=1e-4)
+    # Dead on the node, the Moon crosses zero latitude at the alignment.
+    middle = int(np.argmin(np.abs(offsets)))
+    assert values[middle][int(np.argmin(np.abs(hours)))] == pytest.approx(0.0, abs=1e-4)
+
+
+def test_the_moon_actually_travels_across_the_shadow():
+    """The side view once drew the Moon at a fixed z and only bobbed it up and
+    down, so nothing appeared to happen. Almost all the crossing motion is
+    *across* the shadow axis; the vertical part is a tenth of it."""
+    track = eclipse_track("lunar")
+    across = np.array(track["channels"]["moon_cross_re"])
+    along = np.array(track["channels"]["moon_axis_re"])
+    latitude = np.array(track["grids"]["latitude_deg"]["values"]).reshape(
+        track["grids"]["latitude_deg"]["rows"], -1
+    )
+    on_node = int(track["grids"]["latitude_deg"]["rows"] // 2)
+    vertical = latitude[on_node] * track["scalars"]["earth_radii_per_deg"]
+
+    assert np.ptp(across) == pytest.approx(6.1, abs=0.3)
+    assert np.ptp(across) > 8 * np.ptp(vertical)
+    assert np.ptp(along) < 0.2  # the distance barely changes
+
+
+def test_the_moon_track_position_is_consistent_with_its_distance():
+    track = eclipse_track("lunar")
+    scalars = track["scalars"]
+    along = np.array(track["channels"]["moon_axis_re"])
+    across = np.array(track["channels"]["moon_cross_re"])
+    assert np.hypot(along, across) == pytest.approx(
+        scalars["moon_distance_earth_radii"], abs=1e-9
+    )
+    # Dead on the alignment the Moon sits square on the axis.
+    middle = len(along) // 2
+    assert across[middle] == pytest.approx(0.0, abs=1e-9)
+
+
+def test_eclipse_magnitude_reads_as_a_fraction_of_the_disc():
+    moon = ast.angular_radius_deg(ast.MOON_RADIUS_KM, ast.MOON_DISTANCE_KM)
+    sun = ast.angular_radius_deg(ast.SUN_RADIUS_KM, ast.AU_KM)
+    assert ast.eclipse_magnitude(moon + sun, sun, moon) == pytest.approx(0.0)
+    assert ast.eclipse_magnitude(0.0, sun, moon) > 0.9
+    assert ast.eclipse_magnitude(99.0, sun, moon) == 0.0

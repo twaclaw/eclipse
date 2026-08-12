@@ -20,7 +20,12 @@ from pathlib import Path
 
 import pytest
 
-from earthsim.widgets import DayNightWidget, MoonPhasesWidget, SeasonsWidget
+from earthsim.widgets import (
+    DayNightWidget,
+    EclipsesWidget,
+    MoonPhasesWidget,
+    SeasonsWidget,
+)
 
 ROOT = Path(__file__).resolve().parent.parent
 STATIC = ROOT / "src" / "earthsim" / "static"
@@ -113,6 +118,44 @@ def build_runs() -> list[dict]:
             "state": widget_state(SeasonsWidget(marker=[-33.9, 151.2])),
         },
         {
+            "name": "eclipse_lunar",
+            "modules": ["earthkit.js", "eclipses.js"],
+            "state": widget_state(EclipsesWidget(kind="lunar")),
+            "frames": 30,
+        },
+        {
+            "name": "eclipse_lunar_missed",
+            "modules": ["earthkit.js", "eclipses.js"],
+            "state": widget_state(
+                EclipsesWidget(kind="lunar", node_offset_deg=11.0)
+            ),
+        },
+        {
+            "name": "eclipse_solar_total",
+            "modules": ["earthkit.js", "eclipses.js"],
+            "state": widget_state(
+                EclipsesWidget(kind="solar", moon_distance_km=363300.0)
+            ),
+            "frames": 30,
+        },
+        {
+            "name": "eclipse_zoomed_out",
+            "modules": ["earthkit.js", "eclipses.js"],
+            "state": widget_state(EclipsesWidget(side_zoom=1.0)),
+        },
+        {
+            "name": "eclipse_zoomed_in",
+            "modules": ["earthkit.js", "eclipses.js"],
+            "state": widget_state(EclipsesWidget(side_zoom=24.0)),
+        },
+        {
+            "name": "eclipse_solar_annular",
+            "modules": ["earthkit.js", "eclipses.js"],
+            "state": widget_state(
+                EclipsesWidget(kind="solar", moon_distance_km=405500.0)
+            ),
+        },
+        {
             "name": "seasons_following_earth",
             "modules": ["earthkit.js", "seasons.js"],
             "state": widget_state(SeasonsWidget(follow_earth=True)),
@@ -158,6 +201,7 @@ def test_the_transport_control_gets_wired_up(smoke):
     assert smoke["seasons"]["transport"] == "❙❙"
     assert smoke["seasons_paused"]["transport"] == "▶"
     assert smoke["moonphases"]["transport"] == "❙❙"
+    assert smoke["eclipse_lunar"]["transport"] == "❙❙"
     assert smoke["moonphases_paused"]["transport"] == "▶"
 
 
@@ -169,10 +213,35 @@ def test_every_slider_gets_wired_up(smoke):
     assert seasons["light"] == "1.00 ×"
     assert seasons["sunlight"] == "0.70 ×"
 
+    eclipse = smoke["eclipse_lunar"]["readouts"]
+    assert eclipse["speed"] == "0.25 h/s"
+    assert eclipse["node"] == "0.0 °"
+    assert eclipse["zoom"] == "5.0 ×"
+
     moon = smoke["moonphases"]["readouts"]
     assert moon["speed"] == "1.50 d/s"
     assert moon["light"] == "1.00 ×"
     assert moon["sunlight"] is None, "the moon has no sun-brightness control"
+
+
+@requires_node
+def test_the_spanish_phase_name_is_shown(smoke):
+    """Blank here means the banner never got its text."""
+    from earthsim.labels import PHASE_NAMES_ES
+
+    assert smoke["moonphases"]["bigname"] in PHASE_NAMES_ES.values()
+    assert smoke["daynight"]["bigname"] is None
+
+
+@requires_node
+def test_the_side_view_reports_how_much_is_in_frame(smoke):
+    """The to-scale strip is only honest if it says what scale it is at."""
+    wide = smoke["eclipse_zoomed_out"]["scale"]
+    close = smoke["eclipse_zoomed_in"]["scale"]
+    assert "Earth radii across" in wide
+    assert "Earth radii across" in close
+    assert int(wide.split()[0]) > int(close.split()[0])
+    assert smoke["daynight"]["scale"] is None
 
 
 @requires_node
@@ -193,6 +262,11 @@ def test_the_transport_actually_drives_the_orbit(smoke):
 
     paused = smoke["seasons_paused"]["clocks"]
     assert len(set(paused)) == 1, "paused, yet the date moved"
+
+    for name in ("eclipse_lunar", "eclipse_solar_total"):
+        ticks = smoke[name]["clocks"]
+        assert len(set(ticks)) > 1, f"{name} never advanced"
+        assert all("NaN" not in c for c in ticks)
 
     moon = smoke["moonphases"]["clocks"]
     assert len(set(moon)) > 1, "the moon's age never advanced"

@@ -10,10 +10,10 @@ def _():
     import numpy as np
 
     from earthsim import astronomy as ast
-    from earthsim.labels import phase_name
+    from earthsim.labels import phase_name, phase_name_es
     from earthsim.widgets import MoonPhasesWidget
 
-    return MoonPhasesWidget, ast, mo, np, phase_name
+    return MoonPhasesWidget, ast, mo, np, phase_name, phase_name_es
 
 
 @app.cell(hide_code=True)
@@ -90,7 +90,7 @@ def _(moon_age, moon_node, moon_shine, moon_south, moon_ui):
 
 
 @app.cell(hide_code=True)
-def _(ast, mo, moon_age, moon_node, np, phase_name):
+def _(ast, mo, moon_age, moon_node, np, phase_name, phase_name_es):
     # Static analysis of the age on the slider, computed in Python.
     _elongation = ast.moon_elongation(moon_age.value)
     _lam = ast.sun_ecliptic_longitude(172.0 + moon_age.value)
@@ -115,7 +115,7 @@ def _(ast, mo, moon_age, moon_node, np, phase_name):
     | | |
     |---|---|
     | Age | {moon_age.value:.1f} days of {ast.SYNODIC_MONTH:.2f} |
-    | Phase | {phase_name(_elongation)} |
+    | Phase | {phase_name(_elongation)} · **{phase_name_es(_elongation).upper()}** |
     | Lit as seen from Earth | {_lit * 100:.0f}% |
     | Elongation from the sun | {np.degrees(_elongation) % 360:.0f}° |
     | Height above the ecliptic | {_beta_deg:+.2f}° |
@@ -153,6 +153,9 @@ def _(mo):
       than the 27.32-day orbit because the sun keeps moving too. In one lunar
       orbit the Earth has travelled far enough that the Moon needs another two
       days to catch the sun up.
+    * The name under the panels is the Spanish one, in capitals, for reading
+      along with. Python chooses the wording and the stylesheet does the
+      capitals, so both languages switch phase at exactly the same instant.
     * The **moon** slider is exposure, not physics: it brightens the sunlit
       face so a thin crescent stays visible without washing out a full moon.
     * Earthshine is the faint glow on the dark side: sunlight reflected off

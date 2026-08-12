@@ -19,10 +19,16 @@ from typing import Any
 import numpy as np
 
 from .astronomy import (
+    AU_KM,
+    EARTH_RADIUS_KM,
     ECCENTRICITY,
     ECLIPSE_LIMIT_DEG,
+    MOON_RADIUS_KM,
     PERIHELION_DOY,
+    SUN_RADIUS_KM,
     SYNODIC_MONTH,
+    TROPIC_DEG,
+    angular_radius_deg,
     daily_insolation,
     day_length_hours,
     earth_position_au,
@@ -30,10 +36,11 @@ from .astronomy import (
     illuminated_fraction,
     moon_direction,
     moon_ecliptic_latitude,
+    moon_ecliptic_latitude_at_node_offset,
     moon_elongation,
+    shadow_radius_km,
     solar_declination,
     spin_angle,
-    TROPIC_DEG,
     subsolar_longitude,
     subsolar_longitude_raw,
     sun_azimuth_deg,
@@ -44,9 +51,16 @@ from .astronomy import (
     sun_elevation_deg,
     sun_elevation_local_deg,
     sunrise_sunset_hours,
+    syzygy_longitude_offset_deg,
     terminator_lat_deg,
 )
-from .labels import date_label, phase_name, season_name, short_date
+from .labels import (
+    PHASE_NAMES_ES,
+    date_label,
+    phase_name,
+    season_name,
+    short_date,
+)
 
 
 def _floats(values) -> list[float]:
@@ -276,7 +290,14 @@ def moon_track(
             "sun_dir": _vectors(sun_direction(lam)),
             "moon_view_sun": _vectors(sun_direction_in_moon_view(elongation)),
         },
-        steps={"phase": compact_steps(naming_age, named)},
+        steps={
+            "phase": compact_steps(naming_age, named),
+            # Same instants, other language: built from the same list so the
+            # two can never fall out of step.
+            "phase_es": compact_steps(
+                naming_age, [PHASE_NAMES_ES[name] for name in named]
+            ),
+        },
         scalars={
             "synodic_month": SYNODIC_MONTH,
             "eclipse_limit_deg": ECLIPSE_LIMIT_DEG,
@@ -367,5 +388,95 @@ def year_track(
             "obliquity_deg": float(TROPIC_DEG),
             "perihelion_doy": float(PERIHELION_DOY),
             "aphelion_doy": 186.0,
+        },
+    ).payload()
+
+
+# ------------------------------------------------------------- 4. eclipses
+
+
+def eclipse_track(
+    kind: str = "lunar",
+    moon_distance_km: float = 365_000.0,
+    span_hours: float = 6.0,
+    samples: int = 241,
+    node_span_deg: float = 12.0,
+    node_step_deg: float = 0.5,
+) -> dict:
+    """A few hours either side of an alignment, for every node offset at once.
+
+    Latitude arrives as a grid indexed by how far the alignment sits from the
+    Moon's orbital node, so that control can be dragged live without Python
+    rebuilding anything. That matters here: sliding off the node until the
+    eclipse fails is the whole lesson.
+    """
+    hours = np.linspace(-span_hours, span_hours, samples)
+    delta_lon = syzygy_longitude_offset_deg(hours)
+    offsets = np.arange(-node_span_deg, node_span_deg + 1e-9, node_step_deg)
+    latitude = moon_ecliptic_latitude_at_node_offset(offsets[:, None], hours[None, :])
+
+    moon_radius = float(angular_radius_deg(MOON_RADIUS_KM, moon_distance_km))
+    sun_radius = float(angular_radius_deg(SUN_RADIUS_KM, AU_KM))
+    umbra_km, penumbra_km = shadow_radius_km(EARTH_RADIUS_KM, moon_distance_km)
+    moon_umbra_km, moon_penumbra_km = shadow_radius_km(
+        MOON_RADIUS_KM, moon_distance_km
+    )
+    # Where the Moon's own shadow closes to a point. Short of Earth and the
+    # eclipse can only be annular.
+    apex_km = MOON_RADIUS_KM * AU_KM / (SUN_RADIUS_KM - MOON_RADIUS_KM)
+
+    return Track(
+        t=_floats(hours),
+        channels={
+            "dlon_deg": _floats(delta_lon),
+            # Where the Moon actually is, in Earth radii: along the shadow's
+            # axis, and across it in the plane of Earth's orbit. The crossing
+            # motion is almost all in "cross" - which is why an edge-on view
+            # shows so little of it, and the view has to be turned.
+            "moon_axis_re": _floats(
+                moon_distance_km / EARTH_RADIUS_KM * np.cos(np.radians(delta_lon))
+            ),
+            "moon_cross_re": _floats(
+                -moon_distance_km / EARTH_RADIUS_KM * np.sin(np.radians(delta_lon))
+            ),
+        },
+        grids={
+            "latitude_deg": grid(
+                latitude,
+                row_start=-node_span_deg,
+                row_step=node_step_deg,
+                col_start=-span_hours,
+                col_step=2.0 * span_hours / (samples - 1),
+                decimals=4,
+            )
+        },
+        scalars={
+            "kind": kind,
+            "span_hours": float(span_hours),
+            "moon_distance_km": float(moon_distance_km),
+            "moon_radius_deg": moon_radius,
+            "sun_radius_deg": sun_radius,
+            "umbra_radius_deg": float(
+                angular_radius_deg(umbra_km, moon_distance_km)
+            ),
+            "penumbra_radius_deg": float(
+                angular_radius_deg(penumbra_km, moon_distance_km)
+            ),
+            # The side view is drawn to scale vertically, in Earth radii.
+            "earth_radii_per_deg": float(
+                moon_distance_km * np.radians(1.0) / EARTH_RADIUS_KM
+            ),
+            "umbra_earth_radii": float(umbra_km / EARTH_RADIUS_KM),
+            "penumbra_earth_radii": float(penumbra_km / EARTH_RADIUS_KM),
+            "moon_earth_radii": float(MOON_RADIUS_KM / EARTH_RADIUS_KM),
+            "moon_umbra_earth_radii": float(moon_umbra_km / EARTH_RADIUS_KM),
+            "moon_penumbra_earth_radii": float(moon_penumbra_km / EARTH_RADIUS_KM),
+            "moon_umbra_apex_fraction": float(apex_km / moon_distance_km),
+            "moon_distance_earth_radii": float(moon_distance_km / EARTH_RADIUS_KM),
+            "moon_umbra_apex_earth_radii": float(apex_km / EARTH_RADIUS_KM),
+            "earth_umbra_apex_earth_radii": float(
+                EARTH_RADIUS_KM * AU_KM / (SUN_RADIUS_KM - EARTH_RADIUS_KM)
+                / EARTH_RADIUS_KM
+            ),
         },
     ).payload()

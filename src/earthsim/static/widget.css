@@ -104,9 +104,44 @@
 }
 
 .es-orbit,
-.es-moon {
+.es-moon,
+.es-eclipseview,
+.es-shadowplane {
   aspect-ratio: 4 / 3;
   min-height: 240px;
+}
+
+/* The eclipse view swaps between a rendered Moon and a drawn sun, so both
+   canvases sit on top of each other and one is hidden. */
+.es-eclipseview canvas {
+  position: absolute;
+  inset: 0;
+}
+
+/* The to-scale side view is long and thin, because the real thing is. */
+.es-sidepanel {
+  margin-top: 10px;
+  height: 260px;
+}
+
+.es-cside {
+  cursor: grab;
+  touch-action: none;
+}
+
+.es-cside:active {
+  cursor: grabbing;
+}
+
+/* How much of the real world is in frame, since the view zooms. */
+.es-scale {
+  position: absolute;
+  right: 9px;
+  bottom: 7px;
+  font: 500 11px/1 ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-variant-numeric: tabular-nums;
+  color: rgba(255, 255, 255, 0.6);
+  pointer-events: none;
 }
 
 /* Full-width panels below the main pair. */
@@ -185,4 +220,26 @@
   font: 500 11px/1 ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
   font-variant-numeric: tabular-nums;
   color: rgba(255, 255, 255, 0.82);
+}
+
+/* The phase name, sized and coloured for a small child reading along.
+   A rounded system face keeps it friendly without shipping a webfont. */
+.es-bigname {
+  margin-top: 10px;
+  padding: 14px 18px;
+  border-radius: 16px;
+  text-align: center;
+  text-transform: uppercase;
+  background: radial-gradient(120% 160% at 50% 0%, #1b2547 0%, #0a0f22 70%);
+  border: 2px solid rgba(255, 216, 138, 0.38);
+  font-family: ui-rounded, "SF Pro Rounded", "Hiragino Maru Gothic ProN",
+    "Nunito", "Quicksand", "Varela Round", "Trebuchet MS", system-ui, sans-serif;
+  font-weight: 800;
+  font-size: clamp(20px, 4.4vw, 44px);
+  letter-spacing: 0.09em;
+  line-height: 1.15;
+  color: #ffe7a3;
+  text-shadow:
+    0 0 22px rgba(255, 197, 92, 0.45),
+    0 2px 0 rgba(0, 0, 0, 0.45);
 }

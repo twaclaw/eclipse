@@ -104,6 +104,29 @@ def phase_name(elongation, cardinal_tolerance_deg: float = 6.0) -> str:
     return "Waning crescent"
 
 
+#: Spanish names, in the order of PHASE_NAMES. Stored in ordinary case; the
+#: widget puts them in capitals for display.
+PHASE_NAMES_ES = {
+    "New moon": "Luna nueva",
+    "Waxing crescent": "Luna creciente",
+    "First quarter": "Cuarto creciente",
+    "Waxing gibbous": "Luna gibosa creciente",
+    "Full moon": "Luna llena",
+    "Waning gibbous": "Luna gibosa menguante",
+    "Last quarter": "Cuarto menguante",
+    "Waning crescent": "Luna menguante",
+}
+
+
+def phase_name_es(elongation, cardinal_tolerance_deg: float = 6.0) -> str:
+    """The phase's Spanish name.
+
+    Routed through :func:`phase_name` so the two languages can never disagree
+    about which phase it is or when it changes.
+    """
+    return PHASE_NAMES_ES[phase_name(elongation, cardinal_tolerance_deg)]
+
+
 _SEASON_AFTER = {
     "March equinox": "N spring / S autumn",
     "June solstice": "N summer / S winter",

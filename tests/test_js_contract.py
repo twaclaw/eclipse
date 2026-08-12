@@ -23,7 +23,7 @@ import pytest
 
 from earthsim import astronomy as ast
 from earthsim.labels import hm, phase_name, season_name, short_date
-from earthsim.track import day_track, moon_track, year_track
+from earthsim.track import day_track, eclipse_track, moon_track, year_track
 
 ROOT = Path(__file__).resolve().parent.parent
 STATIC = ROOT / "src" / "earthsim" / "static"
@@ -40,6 +40,7 @@ GRID_DECLINATIONS = [-23.4392811, -12.0, -0.25, 0.0, 7.37, 23.4392811]
 DAY_HOURS = [0.0, 0.001, 1.0, 3.7, 6.0, 11.5, 12.0, 15.9833, 17.25, 23.0, 23.9999, 24.0]
 MOON_AGES = [0.0, 3.2, 7.38, 11.0, 14.765, 18.5, 22.15, 26.0, 29.53]
 YEAR_DAYS = [0.0, 3.5, 79.8, 100.0, 172.0, 186.0, 265.7, 300.0, 355.0, 365.0]
+ECLIPSE_HOURS = [-6.0, -3.25, -1.0, 0.0, 0.5, 2.75, 6.0]
 HOUR_ANGLES = [-180.0, -179.5, -117.3, -90.0, -0.4, 0.0, 45.6, 90.0, 179.9, 180.0]
 
 
@@ -48,12 +49,18 @@ def readings(tmp_path_factory):
     """Run the browser's own code over known tracks and collect the results."""
     tracks = {
         "day": day_track(DAY_OF_YEAR, (51.5, -0.1)),
+        "eclipse": eclipse_track("lunar"),
         "moon": moon_track(),
         "year": year_track(SEASONS_LATITUDE, 0.0),
     }
     spec = {
         "tracks": tracks,
-        "times": {"day": DAY_HOURS, "moon": MOON_AGES, "year": YEAR_DAYS},
+        "times": {
+            "day": DAY_HOURS,
+            "moon": MOON_AGES,
+            "year": YEAR_DAYS,
+            "eclipse": ECLIPSE_HOURS,
+        },
         "tableQueries": {
             "terminator": {"track": "day", "table": "terminator_lat", "at": HOUR_ANGLES},
             "daylight": {
@@ -80,7 +87,8 @@ def readings(tmp_path_factory):
 
 @requires_node
 @pytest.mark.parametrize(
-    "name", ["earthkit.js", "daynight.js", "moonphases.js", "seasons.js"]
+    "name",
+    ["earthkit.js", "daynight.js", "moonphases.js", "seasons.js", "eclipses.js"],
 )
 def test_javascript_parses(name):
     subprocess.run([node, "--check", str(STATIC / name)], check=True)
@@ -277,3 +285,31 @@ def test_js_reads_the_daylight_table_the_same_way_python_wrote_it(readings):
             ast.day_length_hours(SEASONS_LATITUDE, np.radians(declination))
         )
         assert got == pytest.approx(expected, abs=0.02)
+
+
+# ------------------------------------------------------------- 4. eclipses
+
+
+@requires_node
+def test_js_places_the_moon_where_python_put_it(readings):
+    """The side view reads these two channels to move the Moon. Getting either
+    wrong is how the panel ends up looking static."""
+    _, out = readings
+    distance = None
+    for hours, sample in zip(ECLIPSE_HOURS, out["samples"]["eclipse"], strict=True):
+        distance = sample["moon_distance_earth_radii"]
+        expected_across = -distance * np.sin(
+            np.radians(ast.syzygy_longitude_offset_deg(hours))
+        )
+        expected_along = distance * np.cos(
+            np.radians(ast.syzygy_longitude_offset_deg(hours))
+        )
+        assert sample["moon_cross_re"] == pytest.approx(expected_across, abs=1e-6)
+        assert sample["moon_axis_re"] == pytest.approx(expected_along, abs=1e-6)
+
+
+@requires_node
+def test_js_sees_the_moon_move_over_the_window(readings):
+    _, out = readings
+    across = [s["moon_cross_re"] for s in out["samples"]["eclipse"]]
+    assert max(across) - min(across) > 5.0  # Earth radii

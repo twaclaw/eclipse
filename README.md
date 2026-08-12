@@ -7,6 +7,7 @@ Animations of the Earth-Moon-Sun system, served from a marimo notebook.
 | `01_moon_phases.py` | the Moon is always half lit; the phase is how much of that half faces us |
 | `02_seasons.py` | one axis, fixed in space, and how it stretches and shrinks a chosen place's day |
 | `03_day_and_night.py` | rotation, the terminator on a flat map, and the sun's path over one place |
+| `04_eclipses.py` | why an alignment only becomes an eclipse near a node |
 
 ```sh
 uv run marimo edit notebooks/
@@ -28,8 +29,9 @@ earthsim/static/
   earthkit.js           track interpolation, the day/night shader, orbit
                         controls - shared by all three animations
   daynight.js           \
-  moonphases.js          }  one drawing module per animation
-  seasons.js            /
+  moonphases.js          \  one drawing module
+  seasons.js             /  per animation
+  eclipses.js           /
 ```
 
 The browser never re-derives a number. It receives a track table - sample
@@ -95,6 +97,9 @@ the picture is for:
   and has to be exaggerated on purpose.
 * At an equinox the terminator does **not** flatten onto the equator; it stands
   up into two meridians through the poles. It is roundest at the solstices.
+* Eclipses are **not** rare because alignments are rare - those happen monthly.
+  They are rare because the Moon's orbit is tilted, so most alignments miss by
+  a degree or so, which is a whole Earth radius at that distance.
 
 ## Accuracy
 
@@ -106,6 +111,13 @@ back, not hard-coded - see `earthsim.labels.SEASON_DAYS`.
 Insolation is the daily mean at the top of the atmosphere and reproduces the
 textbook values: 416 W/m² annual mean at the equator, and 524 W/m² at the north
 pole on the June solstice, which is more than the equator gets that day.
+
+Eclipse geometry falls out of the same two-body picture: Earth's umbra works
+out at 4600 km across at the Moon's distance and its penumbra at 8175 km, both
+matching the almanac, and the Moon's own umbra closes about 45 km short of
+Earth at mean distance - which is why annular eclipses are slightly the more
+common kind. The solar view is geocentric, so the parallax that makes totality
+a narrow track rather than a hemisphere is not modelled.
 
 Deliberately left out: the equation of time, the gap between the solar and
 sidereal day, atmospheric refraction, and the sun's angular radius. Day lengths

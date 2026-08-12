@@ -330,3 +330,96 @@ def sun_elevation_local_deg(lat_deg, local_solar_hours, declination):
     """
     hour_angle_deg = (np.asarray(local_solar_hours, float) - 12.0) * 15.0
     return sun_elevation_deg(lat_deg, hour_angle_deg, 0.0, declination)
+
+
+# --------------------------------------------------------------- eclipses
+
+SUN_RADIUS_KM = 695_700.0
+AU_KM = 1.495978707e8
+DRACONIC_MONTH = 27.212221  # node to node: what governs the climb through zero
+MOON_PERIGEE_KM = 363_300.0
+MOON_APOGEE_KM = 405_500.0
+
+#: Degrees per hour the Moon gains on the sun, and on its own orbital node.
+SYNODIC_RATE_DEG_PER_HOUR = 360.0 / (SYNODIC_MONTH * 24.0)
+DRACONIC_RATE_DEG_PER_HOUR = 360.0 / (DRACONIC_MONTH * 24.0)
+
+
+def angular_radius_deg(radius_km, distance_km):
+    return np.degrees(np.arctan(np.asarray(radius_km, float) / distance_km))
+
+
+def shadow_radius_km(body_radius_km, distance_km, sun_distance_km=AU_KM):
+    """Radius of a body's umbra and penumbra at some distance behind it.
+
+    The umbra narrows with distance and eventually closes to a point; the
+    penumbra widens. A *negative* umbra radius means the cone has already
+    closed, which is exactly what makes an eclipse annular rather than total.
+    """
+    taper = np.asarray(distance_km, float) / sun_distance_km
+    umbra = body_radius_km - (SUN_RADIUS_KM - body_radius_km) * taper
+    penumbra = body_radius_km + (SUN_RADIUS_KM + body_radius_km) * taper
+    return umbra, penumbra
+
+
+def moon_ecliptic_latitude_at_node_offset(node_offset_deg, hours=0.0):
+    """Latitude of the Moon a given time from a syzygy near a node.
+
+    ``node_offset_deg`` is how far round its orbit the Moon is from the node at
+    the moment of syzygy: zero puts the alignment dead on the node, and a few
+    degrees is enough to miss the shadow completely.
+    """
+    argument = np.radians(
+        np.asarray(node_offset_deg, float)
+        + DRACONIC_RATE_DEG_PER_HOUR * np.asarray(hours, float)
+    )
+    return np.degrees(np.arcsin(np.sin(MOON_INCLINATION) * np.sin(argument)))
+
+
+def syzygy_longitude_offset_deg(hours):
+    """How far past exact alignment the Moon has drifted, in longitude."""
+    return SYNODIC_RATE_DEG_PER_HOUR * np.asarray(hours, float)
+
+
+def separation_deg(delta_lon_deg, latitude_deg):
+    """Angle between two directions differing by a longitude and a latitude."""
+    return np.degrees(
+        np.arccos(
+            np.clip(
+                np.cos(np.radians(latitude_deg))
+                * np.cos(np.radians(delta_lon_deg)),
+                -1.0,
+                1.0,
+            )
+        )
+    )
+
+
+def lunar_eclipse_kind(separation, moon_radius, umbra_radius, penumbra_radius):
+    """What Earth's shadow does to the Moon at this separation."""
+    if separation + moon_radius <= umbra_radius:
+        return "total"
+    if separation < umbra_radius + moon_radius:
+        return "partial"
+    if separation < penumbra_radius + moon_radius:
+        return "penumbral"
+    return "none"
+
+
+def solar_eclipse_kind(separation, moon_radius, sun_radius):
+    """What the Moon does to the sun at this separation, from Earth's centre.
+
+    Annular when the Moon is too far away to cover the disc, which is the usual
+    case: at its mean distance the Moon is very slightly the smaller of the two.
+    """
+    if separation > moon_radius + sun_radius:
+        return "none"
+    if separation > abs(sun_radius - moon_radius):
+        return "partial"
+    return "total" if moon_radius >= sun_radius else "annular"
+
+
+def eclipse_magnitude(separation, covered_radius, covering_radius):
+    """Fraction of the eclipsed body's diameter that the shadow covers."""
+    reach = covered_radius + covering_radius - separation
+    return float(max(0.0, reach / (2.0 * covered_radius)))

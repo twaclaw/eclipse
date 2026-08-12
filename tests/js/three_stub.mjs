@@ -78,6 +78,18 @@ class Geometry {
     this[name] = attr;
     return this;
   }
+  rotateX() {
+    return this;
+  }
+  rotateY() {
+    return this;
+  }
+  rotateZ() {
+    return this;
+  }
+  translate() {
+    return this;
+  }
   dispose() {}
 }
 
@@ -127,6 +139,17 @@ export const NoColorSpace = "";
 export const SRGBColorSpace = "srgb";
 export const LinearSRGBColorSpace = "srgb-linear";
 
+export class Vector2 {
+  constructor(x = 0, y = 0) {
+    this.set(x, y);
+  }
+  set(x, y) {
+    this.x = x;
+    this.y = y;
+    return this;
+  }
+}
+
 export const Vector3 = Vec3;
 export const Group = Object3D;
 export class Mesh extends Object3D {
@@ -141,6 +164,10 @@ export class LineSegments extends Mesh {}
 export class Points extends Mesh {}
 export const BufferGeometry = Geometry;
 export class SphereGeometry extends Geometry {}
+export class CylinderGeometry extends Geometry {}
+export class RingGeometry extends Geometry {}
+export const DoubleSide = 2;
+export const AdditiveBlending = 2;
 export class Float32BufferAttribute {
   constructor(array, itemSize) {
     this.array = array;
@@ -154,6 +181,14 @@ export class LineBasicMaterial extends Material {}
 export class PointsMaterial extends Material {}
 
 export class Scene extends Object3D {}
+
+export class OrthographicCamera extends Object3D {
+  constructor(left, right, top, bottom, near, far) {
+    super();
+    Object.assign(this, { left, right, top, bottom, near, far });
+  }
+  updateProjectionMatrix() {}
+}
 
 export class PerspectiveCamera extends Object3D {
   constructor(fov, aspect, near, far) {

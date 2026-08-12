@@ -29,6 +29,11 @@ function context2d() {
       data: new Uint8ClampedArray(Math.max(0, w * h * 4)),
     }),
     measureText: () => ({ width: 10 }),
+    getImageData: (x, y, w, h) => ({
+      width: w,
+      height: h,
+      data: new Uint8ClampedArray(Math.max(0, w * h * 4)),
+    }),
     createLinearGradient: () => ({ addColorStop() {} }),
     createRadialGradient: () => ({ addColorStop() {} }),
     createPattern: () => null,
@@ -161,11 +166,15 @@ for (const run of spec.runs) {
     record.clock = text(".es-clock");
     record.clocks = clocks;
     record.transport = text(".es-play");
+    record.bigname = text(".es-bigname");
     record.readouts = {
       speed: text(".es-ctl-out-speed"),
       light: text(".es-ctl-out-light"),
       sunlight: text(".es-ctl-out-sunlight"),
+      node: text(".es-ctl-out-node"),
+      zoom: text(".es-ctl-out-zoom"),
     };
+    record.scale = text(".es-scale");
     if (typeof cleanup === "function") cleanup();
     record.ok = record.frames >= Math.min(2, wanted);
     if (!record.ok) record.error = "render() never queued a frame";
