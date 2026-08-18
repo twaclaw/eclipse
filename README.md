@@ -7,7 +7,8 @@ Animations of the Earth-Moon-Sun system, served from a marimo notebook.
 | `01_moon_phases.py` | the Moon is always half lit; the phase is how much of that half faces us |
 | `02_seasons.py` | one axis, fixed in space, and how it stretches and shrinks a chosen place's day |
 | `03_day_and_night.py` | rotation, the terminator on a flat map, and the sun's path over one place |
-| `04_eclipses.py` | why an alignment only becomes an eclipse near a node |
+| `04_lunar_eclipse.py` | Earth's shadow crossing the Moon, and why it usually misses |
+| `05_solar_eclipse.py` | the Moon's shadow crossing us, and why it is often a ring |
 
 ```sh
 uv run marimo edit notebooks/
@@ -31,7 +32,7 @@ earthsim/static/
   daynight.js           \
   moonphases.js          \  one drawing module
   seasons.js             /  per animation
-  eclipses.js           /
+  eclipses.js           /   (both eclipse notebooks share this one)
 ```
 
 The browser never re-derives a number. It receives a track table - sample

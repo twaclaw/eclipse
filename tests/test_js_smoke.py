@@ -23,9 +23,10 @@ import pytest
 
 from earthsim.widgets import (
     DayNightWidget,
-    EclipsesWidget,
+    LunarEclipseWidget,
     MoonPhasesWidget,
     SeasonsWidget,
+    SolarEclipseWidget,
 )
 
 ROOT = Path(__file__).resolve().parent.parent
@@ -121,40 +122,34 @@ def build_runs() -> list[dict]:
         {
             "name": "eclipse_lunar",
             "modules": ["earthkit.js", "eclipses.js"],
-            "state": widget_state(EclipsesWidget(kind="lunar")),
+            "state": widget_state(LunarEclipseWidget()),
             "frames": 30,
         },
         {
             "name": "eclipse_lunar_missed",
             "modules": ["earthkit.js", "eclipses.js"],
-            "state": widget_state(
-                EclipsesWidget(kind="lunar", node_offset_deg=11.0)
-            ),
+            "state": widget_state(LunarEclipseWidget(node_offset_deg=11.0)),
         },
         {
             "name": "eclipse_solar_total",
             "modules": ["earthkit.js", "eclipses.js"],
-            "state": widget_state(
-                EclipsesWidget(kind="solar", moon_distance_km=363300.0)
-            ),
+            "state": widget_state(SolarEclipseWidget(moon_distance_km=363300.0)),
             "frames": 30,
         },
         {
             "name": "eclipse_zoomed_out",
             "modules": ["earthkit.js", "eclipses.js"],
-            "state": widget_state(EclipsesWidget(side_zoom=1.0)),
+            "state": widget_state(LunarEclipseWidget(side_zoom=1.0)),
         },
         {
             "name": "eclipse_zoomed_in",
             "modules": ["earthkit.js", "eclipses.js"],
-            "state": widget_state(EclipsesWidget(side_zoom=24.0)),
+            "state": widget_state(LunarEclipseWidget(side_zoom=24.0)),
         },
         {
             "name": "eclipse_solar_annular",
             "modules": ["earthkit.js", "eclipses.js"],
-            "state": widget_state(
-                EclipsesWidget(kind="solar", moon_distance_km=405500.0)
-            ),
+            "state": widget_state(SolarEclipseWidget(moon_distance_km=405500.0)),
         },
         {
             "name": "seasons_following_earth",

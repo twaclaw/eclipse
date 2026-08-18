@@ -6,21 +6,32 @@ plain tables, and the JavaScript under ``static/`` only interpolates and draws.
 """
 
 from .labels import date_label, phase_name, season_name
-from .track import day_track, eclipse_track, moon_track, year_track
+from .track import (
+    day_track,
+    eclipse_summary,
+    eclipse_track,
+    moon_track,
+    year_track,
+)
 from .widgets import (
     DayNightWidget,
     EclipsesWidget,
+    LunarEclipseWidget,
     MoonPhasesWidget,
     SeasonsWidget,
+    SolarEclipseWidget,
 )
 
 __all__ = [
     "DayNightWidget",
     "EclipsesWidget",
+    "LunarEclipseWidget",
     "MoonPhasesWidget",
     "SeasonsWidget",
+    "SolarEclipseWidget",
     "date_label",
     "day_track",
+    "eclipse_summary",
     "eclipse_track",
     "moon_track",
     "phase_name",

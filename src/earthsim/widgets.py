@@ -184,3 +184,19 @@ class EclipsesWidget(_Base):
     @traitlets.observe("kind", "moon_distance_km")
     def _on_geometry(self, _change) -> None:
         self._rebuild()
+
+
+class LunarEclipseWidget(EclipsesWidget):
+    """Earth's shadow crossing the Moon.
+
+    Shares its engine with the solar one - the same geometry seen from the
+    other end - with the kind fixed so a notebook need not ask.
+    """
+
+    kind = traitlets.Unicode("lunar")
+
+
+class SolarEclipseWidget(EclipsesWidget):
+    """The Moon's shadow crossing us."""
+
+    kind = traitlets.Unicode("solar")

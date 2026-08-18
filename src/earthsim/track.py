@@ -29,6 +29,7 @@ from .astronomy import (
     SYNODIC_MONTH,
     TROPIC_DEG,
     angular_radius_deg,
+    eclipse_magnitude,
     daily_insolation,
     day_length_hours,
     earth_position_au,
@@ -36,9 +37,12 @@ from .astronomy import (
     illuminated_fraction,
     moon_direction,
     moon_ecliptic_latitude,
+    lunar_eclipse_kind,
     moon_ecliptic_latitude_at_node_offset,
     moon_elongation,
+    separation_deg,
     shadow_radius_km,
+    solar_eclipse_kind,
     solar_declination,
     spin_angle,
     subsolar_longitude,
@@ -480,3 +484,53 @@ def eclipse_track(
             ),
         },
     ).payload()
+
+
+def eclipse_summary(track: dict, node_offset_deg: float) -> dict:
+    """What the eclipse comes to at its deepest, for a given node offset.
+
+    Both eclipse notebooks print the same verdict, so it is worked out once
+    here rather than twice in markdown. The window is scanned rather than
+    solved: greatest eclipse is not quite at the moment of alignment once the
+    Moon is climbing away from the node.
+    """
+    scalars = track["scalars"]
+    span = scalars["span_hours"]
+    hours = np.linspace(-span, span, 2001)
+    gap = separation_deg(
+        syzygy_longitude_offset_deg(hours),
+        moon_ecliptic_latitude_at_node_offset(node_offset_deg, hours),
+    )
+    closest = float(np.min(gap))
+    moon_radius = scalars["moon_radius_deg"]
+
+    if scalars["kind"] == "lunar":
+        verdict = lunar_eclipse_kind(
+            closest,
+            moon_radius,
+            scalars["umbra_radius_deg"],
+            scalars["penumbra_radius_deg"],
+        )
+        covered, covering = moon_radius, scalars["umbra_radius_deg"]
+        inside = gap < scalars["umbra_radius_deg"] + moon_radius
+        during = "in Earth's umbra"
+    else:
+        verdict = solar_eclipse_kind(
+            closest, moon_radius, scalars["sun_radius_deg"]
+        )
+        covered, covering = scalars["sun_radius_deg"], moon_radius
+        inside = gap < scalars["sun_radius_deg"] + moon_radius
+        during = "with the sun partly hidden"
+
+    return {
+        "kind": scalars["kind"],
+        "node_offset_deg": float(node_offset_deg),
+        "latitude_deg": float(
+            moon_ecliptic_latitude_at_node_offset(node_offset_deg)
+        ),
+        "closest_deg": closest,
+        "verdict": verdict,
+        "magnitude": eclipse_magnitude(closest, covered, covering),
+        "duration_hours": float(np.count_nonzero(inside)) * (hours[1] - hours[0]),
+        "during": during,
+    }

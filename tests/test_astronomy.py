@@ -19,7 +19,14 @@ from earthsim.labels import (
     phase_name,
     phase_name_es,
 )
-from earthsim.track import Track, day_track, eclipse_track, moon_track, year_track
+from earthsim.track import (
+    Track,
+    day_track,
+    eclipse_summary,
+    eclipse_track,
+    moon_track,
+    year_track,
+)
 
 
 def declination_on(day_of_year):
@@ -600,3 +607,71 @@ def test_eclipse_magnitude_reads_as_a_fraction_of_the_disc():
     assert ast.eclipse_magnitude(moon + sun, sun, moon) == pytest.approx(0.0)
     assert ast.eclipse_magnitude(0.0, sun, moon) > 0.9
     assert ast.eclipse_magnitude(99.0, sun, moon) == 0.0
+
+
+# ------------------------------------------------- the two eclipse notebooks
+
+
+def test_the_two_eclipse_widgets_are_one_engine_with_the_kind_fixed():
+    """Split into two notebooks, but the geometry is the same problem seen from
+    either end, so they share a drawing module rather than a copy of one."""
+    from earthsim.widgets import LunarEclipseWidget, SolarEclipseWidget
+
+    lunar, solar = LunarEclipseWidget(), SolarEclipseWidget()
+    assert lunar.track["scalars"]["kind"] == "lunar"
+    assert solar.track["scalars"]["kind"] == "solar"
+    assert lunar._esm == solar._esm
+
+
+@pytest.mark.parametrize(
+    ("kind", "offset", "expected"),
+    [
+        ("lunar", 0.0, "total"),
+        ("lunar", 6.0, "partial"),
+        ("lunar", 11.5, "penumbral"),
+        ("lunar", 18.0, "none"),
+        ("solar", 0.0, "total"),
+        ("solar", 4.0, "partial"),
+        ("solar", 11.0, "none"),
+    ],
+)
+def test_eclipse_summary_reads_the_verdict_both_notebooks_print(
+    kind, offset, expected
+):
+    summary = eclipse_summary(eclipse_track(kind), offset)
+    assert summary["verdict"] == expected
+    if expected == "none":
+        assert summary["magnitude"] == 0.0
+        assert summary["duration_hours"] == 0.0
+    elif expected == "penumbral":
+        # Never reaches the umbra: that absence is what makes it penumbral, and
+        # the timed quantity is umbral, so zero here is the right answer.
+        assert summary["duration_hours"] == 0.0
+    else:
+        assert summary["duration_hours"] > 0
+
+
+def test_the_shadow_has_two_limits_not_one():
+    """The umbra runs out around 10.6 degrees from the node, but the penumbra
+    reaches half again as far - which is why faint penumbral eclipses are so
+    much commoner than dark ones."""
+    track = eclipse_track("lunar")
+    verdicts = {
+        offset: eclipse_summary(track, offset)["verdict"]
+        for offset in (0.0, 10.0, 12.0, 17.0, 18.0)
+    }
+    assert verdicts[0.0] == "total"
+    assert verdicts[10.0] == "partial"
+    assert verdicts[12.0] == "penumbral"
+    assert verdicts[17.0] == "penumbral"
+    assert verdicts[18.0] == "none"
+
+
+def test_a_far_moon_cannot_cover_the_sun():
+    """Why annular eclipses happen at all, and why they are the commoner kind."""
+    near = eclipse_track("solar", moon_distance_km=363_300.0)
+    far = eclipse_track("solar", moon_distance_km=405_500.0)
+    assert eclipse_summary(near, 0.0)["verdict"] == "total"
+    assert eclipse_summary(far, 0.0)["verdict"] == "annular"
+    assert near["scalars"]["moon_umbra_earth_radii"] > 0  # the tip lands on us
+    assert far["scalars"]["moon_umbra_earth_radii"] < 0  # it runs out first
