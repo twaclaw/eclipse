@@ -23,6 +23,7 @@ import pytest
 
 from earthsim.widgets import (
     DayNightWidget,
+    LatitudeWidget,
     LunarEclipseWidget,
     MoonPhasesWidget,
     SeasonsWidget,
@@ -118,6 +119,26 @@ def build_runs() -> list[dict]:
             "name": "seasons_southern_location",
             "modules": ["earthkit.js", "seasons.js"],
             "state": widget_state(SeasonsWidget(marker=[-33.9, 151.2])),
+        },
+        {
+            "name": "latitude_north",
+            "modules": ["earthkit.js", "latitude.js"],
+            "state": widget_state(LatitudeWidget()),
+        },
+        {
+            "name": "latitude_equator",
+            "modules": ["earthkit.js", "latitude.js"],
+            "state": widget_state(LatitudeWidget(latitude=0.0)),
+        },
+        {
+            "name": "latitude_south",
+            "modules": ["earthkit.js", "latitude.js"],
+            "state": widget_state(LatitudeWidget(latitude=-33.9, longitude=151.2)),
+        },
+        {
+            "name": "latitude_pole",
+            "modules": ["earthkit.js", "latitude.js"],
+            "state": widget_state(LatitudeWidget(latitude=90.0)),
         },
         {
             "name": "eclipse_lunar",
@@ -296,3 +317,12 @@ def test_the_transport_actually_drives_the_orbit(smoke):
     assert len(set(moon)) > 1, "the moon's age never advanced"
     assert all("NaN" not in c for c in moon)
     assert len(set(smoke["moonphases_paused"]["clocks"])) == 1
+
+
+@requires_node
+def test_the_latitude_panel_shows_where_you_picked(smoke):
+    """The clock corner is the only confirmation that a click landed."""
+    assert smoke["latitude_north"]["clock"] == "51.5°N"
+    assert smoke["latitude_south"]["clock"] == "33.9°S"
+    assert smoke["latitude_pole"]["clock"] == "90.0°N"
+    assert smoke["latitude_north"]["readouts"]["lat"] == "51.5 °"

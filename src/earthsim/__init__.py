@@ -16,6 +16,7 @@ from .track import (
 from .widgets import (
     DayNightWidget,
     EclipsesWidget,
+    LatitudeWidget,
     LunarEclipseWidget,
     MoonPhasesWidget,
     SeasonsWidget,
@@ -25,6 +26,7 @@ from .widgets import (
 __all__ = [
     "DayNightWidget",
     "EclipsesWidget",
+    "LatitudeWidget",
     "LunarEclipseWidget",
     "MoonPhasesWidget",
     "SeasonsWidget",

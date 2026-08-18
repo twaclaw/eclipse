@@ -64,6 +64,16 @@ class Object3D {
     return this;
   }
   lookAt() {}
+  worldToLocal(v) {
+    return v;
+  }
+}
+
+export class Raycaster {
+  setFromCamera() {}
+  intersectObject() {
+    return [];
+  }
 }
 
 class Geometry {

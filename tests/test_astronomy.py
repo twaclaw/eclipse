@@ -675,3 +675,48 @@ def test_a_far_moon_cannot_cover_the_sun():
     assert eclipse_summary(far, 0.0)["verdict"] == "annular"
     assert near["scalars"]["moon_umbra_earth_radii"] > 0  # the tip lands on us
     assert far["scalars"]["moon_umbra_earth_radii"] < 0  # it runs out first
+
+
+# --------------------------------------------- latitude and the pole star
+
+
+@pytest.mark.parametrize("lat", [-90.0, -33.9, 0.0, 23.4, 51.5, 78.2, 90.0])
+def test_the_pole_stands_exactly_your_latitude_above_the_horizon(lat):
+    """The claim the notebook makes, rebuilt from vectors instead of trusted.
+
+    Work in the plane of the meridian: the equator along +x, the axis along
+    +y. Your zenith is the radius through your feet, the horizon is square to
+    it, and Polaris lies along the axis because it is effectively infinitely
+    far away. The altitude is then just how far the pole direction rises out
+    of the horizon plane.
+    """
+    phi = np.radians(lat)
+    zenith = np.array([np.cos(phi), np.sin(phi)])
+    pole_direction = np.array([0.0, 1.0])
+    altitude = np.degrees(np.arcsin(np.dot(pole_direction, zenith)))
+    assert altitude == pytest.approx(
+        float(ast.celestial_pole_altitude_deg(lat)), abs=1e-9
+    )
+
+
+def test_below_the_equator_the_pole_is_below_the_horizon():
+    assert ast.pole_star_is_up(0.1)
+    assert not ast.pole_star_is_up(0.0)
+    assert not ast.pole_star_is_up(-40.0)
+    assert float(ast.celestial_pole_altitude_deg(-40.0)) == -40.0
+
+
+def test_polaris_wanders_by_its_distance_from_the_pole():
+    """The only 'approximately' in the notebook, and its size."""
+    low, high = ast.polaris_altitude_range_deg(51.5)
+    assert high - low == pytest.approx(2 * ast.POLARIS_POLE_SEPARATION_DEG)
+    assert (low + high) / 2 == pytest.approx(51.5)
+    assert ast.POLARIS_POLE_SEPARATION_DEG < 1.0
+
+
+def test_the_widget_says_what_is_true_at_each_latitude():
+    from earthsim.widgets import LatitudeWidget
+
+    assert "above your horizon" in LatitudeWidget(latitude=51.5).readout["headline"]
+    assert "on the horizon" in LatitudeWidget(latitude=0.0).readout["headline"]
+    assert "below your horizon" in LatitudeWidget(latitude=-33.9).readout["headline"]

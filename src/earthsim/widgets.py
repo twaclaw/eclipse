@@ -17,7 +17,13 @@ import anywidget
 import numpy as np
 import traitlets
 
-from .astronomy import OBLIQUITY
+from .astronomy import (
+    OBLIQUITY,
+    POLARIS_POLE_SEPARATION_DEG,
+    celestial_pole_altitude_deg,
+    polaris_altitude_range_deg,
+    pole_star_is_up,
+)
 from .track import day_track, eclipse_track, moon_track, year_track
 
 _STATIC = pathlib.Path(__file__).parent / "static"
@@ -200,3 +206,56 @@ class SolarEclipseWidget(EclipsesWidget):
     """The Moon's shadow crossing us."""
 
     kind = traitlets.Unicode("solar")
+
+
+class LatitudeWidget(_Base):
+    """Animation 6: your latitude, and the height of the pole star.
+
+    Globe and map are two views of one choice - clicking either moves both -
+    and the diagram argues why the angle overhead is the angle underfoot.
+    """
+
+    _esm = _bundle("earthkit.js", "latitude.js")
+
+    latitude = traitlets.Float(51.5).tag(sync=True)
+    longitude = traitlets.Float(-0.1).tag(sync=True)
+    #: Everything the diagram prints, worked out in Python.
+    readout = traitlets.Dict().tag(sync=True)
+
+    def __init__(self, **kwargs):
+        kwargs.setdefault("playing", False)
+        super().__init__(**kwargs)
+        self._rebuild()
+
+    @traitlets.observe("latitude")
+    def _on_latitude(self, _change) -> None:
+        self._rebuild()
+
+    def _rebuild(self) -> None:
+        self.readout = self.summary()
+
+    def summary(self) -> dict:
+        """What is true at the chosen latitude, in words and numbers."""
+        lat = float(self.latitude)
+        altitude = float(celestial_pole_altitude_deg(lat))
+        low, high = polaris_altitude_range_deg(lat)
+        up = pole_star_is_up(lat)
+        if up:
+            headline = f"Polaris stands about {altitude:.1f}° above your horizon."
+        elif lat == 0:
+            headline = "On the equator the pole sits exactly on the horizon."
+        else:
+            headline = (
+                f"Polaris is {abs(altitude):.1f}° below your horizon — "
+                "never visible from here."
+            )
+        return {
+            "latitude_deg": lat,
+            "longitude_deg": float(self.longitude),
+            "pole_altitude_deg": altitude,
+            "polaris_low_deg": low,
+            "polaris_high_deg": high,
+            "polaris_separation_deg": POLARIS_POLE_SEPARATION_DEG,
+            "visible": up,
+            "headline": headline,
+        }

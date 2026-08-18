@@ -258,6 +258,26 @@ function latLonToVec3(latDeg, lonDeg, r) {
   ];
 }
 
+/* The inverse of latLonToVec3: turn a point on a body's own frame back into a
+ * latitude and longitude. Used to work out where a click landed on a globe. */
+function vec3ToLatLon(x, y, z) {
+  const r = Math.hypot(x, y, z) || 1;
+  return [
+    Math.asin(Math.max(-1, Math.min(1, y / r))) / DEG,
+    Math.atan2(-z, x) / DEG,
+  ];
+}
+
+/* A ring of points at one latitude, for drawing a parallel on a globe. */
+function parallelPoints(THREE, latDeg, radius, steps) {
+  const points = [];
+  for (let i = 0; i <= steps; i++) {
+    const lon = -180 + (360 * i) / steps;
+    points.push(new THREE.Vector3(...latLonToVec3(latDeg, lon, radius)));
+  }
+  return points;
+}
+
 function makeTexture(THREE, img, maxAniso) {
   const t = new THREE.Texture(img);
   t.colorSpace = THREE.NoColorSpace;

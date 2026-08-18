@@ -423,3 +423,41 @@ def eclipse_magnitude(separation, covered_radius, covering_radius):
     """Fraction of the eclipsed body's diameter that the shadow covers."""
     reach = covered_radius + covering_radius - separation
     return float(max(0.0, reach / (2.0 * covered_radius)))
+
+
+# ------------------------------------------------------------- the pole star
+
+#: How far Polaris sits from the true north celestial pole, degrees. It is not
+#: fixed: precession is carrying Polaris closer until about 2100, after which
+#: it drifts away again. This is roughly the present value.
+POLARIS_POLE_SEPARATION_DEG = 0.65
+
+
+def celestial_pole_altitude_deg(lat_deg):
+    """How high the celestial pole stands above the horizon.
+
+    It is the latitude, exactly - not approximately, and not by coincidence.
+    Earth's axis points at the pole, the zenith points along the radius, and
+    the horizon is square to the zenith; the rest is alternate angles. The
+    identity is proved geometrically in the tests rather than assumed here.
+    """
+    return np.asarray(lat_deg, float)
+
+
+def polaris_altitude_range_deg(lat_deg):
+    """Lowest and highest Polaris gets, as it circles the pole once a day.
+
+    Polaris is not *at* the pole, so it traces a small circle around it and its
+    altitude wanders by that separation either side of the latitude. That is
+    the whole of the "approximately".
+    """
+    altitude = celestial_pole_altitude_deg(lat_deg)
+    return (
+        float(altitude - POLARIS_POLE_SEPARATION_DEG),
+        float(altitude + POLARIS_POLE_SEPARATION_DEG),
+    )
+
+
+def pole_star_is_up(lat_deg) -> bool:
+    """Whether the north celestial pole is above the horizon at all."""
+    return float(lat_deg) > 0.0

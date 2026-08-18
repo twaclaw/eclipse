@@ -178,6 +178,7 @@ for (const run of spec.runs) {
       node: text(".es-ctl-out-node"),
       zoom: text(".es-ctl-out-zoom"),
       when: text(".es-ctl-out-when"),
+      lat: text(".es-ctl-out-lat"),
     };
     record.scale = text(".es-scale");
     if (typeof cleanup === "function") cleanup();

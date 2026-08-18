@@ -9,6 +9,7 @@ Animations of the Earth-Moon-Sun system, served from a marimo notebook.
 | `03_day_and_night.py` | rotation, the terminator on a flat map, and the sun's path over one place |
 | `04_lunar_eclipse.py` | Earth's shadow crossing the Moon, and why it usually misses |
 | `05_solar_eclipse.py` | the Moon's shadow crossing us, and why it is often a ring |
+| `06_latitude_and_polaris.py` | latitude as an angle you cannot see, and the pole star that shows it |
 
 ```sh
 uv run marimo edit notebooks/
@@ -33,6 +34,7 @@ earthsim/static/
   moonphases.js          \  one drawing module
   seasons.js             /  per animation
   eclipses.js           /   (both eclipse notebooks share this one)
+  latitude.js          /
 ```
 
 The browser never re-derives a number. It receives a track table - sample
@@ -98,6 +100,9 @@ the picture is for:
 * Seasons are **not** distance. Earth is closest to the sun in early January.
   The eccentricity control starts at the true value - a circle, near enough -
   and has to be exaggerated on purpose.
+* The pole star trick is **not** approximate in the way people assume. The
+  celestial pole stands exactly your latitude up; Polaris is merely 0.65° off
+  that pole, and that offset is the entire error.
 * At an equinox the terminator does **not** flatten onto the equator; it stands
   up into two meridians through the poles. It is roundest at the solstices.
 * Eclipses are **not** rare because alignments are rare - those happen monthly.
