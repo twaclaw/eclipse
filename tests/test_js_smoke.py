@@ -126,6 +126,18 @@ def build_runs() -> list[dict]:
             "state": widget_state(LatitudeWidget()),
         },
         {
+            "name": "latitude_globe_click",
+            "modules": ["earthkit.js", "latitude.js"],
+            "state": widget_state(LatitudeWidget()),
+            "click": {"selector": ".es-c3d", "x": 400, "y": 200},
+        },
+        {
+            "name": "latitude_map_click",
+            "modules": ["earthkit.js", "latitude.js"],
+            "state": widget_state(LatitudeWidget()),
+            "click": {"selector": ".es-c2d", "x": 675, "y": 105},
+        },
+        {
             "name": "latitude_equator",
             "modules": ["earthkit.js", "latitude.js"],
             "state": widget_state(LatitudeWidget(latitude=0.0)),
@@ -326,3 +338,30 @@ def test_the_latitude_panel_shows_where_you_picked(smoke):
     assert smoke["latitude_south"]["clock"] == "33.9°S"
     assert smoke["latitude_pole"]["clock"] == "90.0°N"
     assert smoke["latitude_north"]["readouts"]["lat"] == "51.5 °"
+
+
+@requires_node
+def test_clicking_the_globe_lands_where_it_was_aimed(smoke):
+    """The stub puts the ray's hit at 30N 45E, so that is where the marker has
+    to end up. Anything else means the world-to-local conversion is wrong."""
+    click = smoke["latitude_globe_click"]["click"]
+    assert click["latitude"] == pytest.approx(30.0, abs=0.02)
+    assert click["longitude"] == pytest.approx(45.0, abs=0.02)
+
+
+@requires_node
+def test_globe_picking_ignores_the_lines_drawn_on_it(smoke):
+    """The graticule, the parallel and the pin are all children of the globe,
+    and three's line intersections use a world-space threshold of 1 - vast
+    against a sphere of radius 1. Recursive picking snapped every click to the
+    nearest 30-degree line."""
+    assert smoke["latitude_globe_click"]["click"]["recursive"] is False
+
+
+@requires_node
+def test_clicking_the_flat_map_lands_where_it_was_aimed(smoke):
+    """The fake canvas reports 900x420 at the origin, so three quarters across
+    and a quarter down is 90E, 45N."""
+    click = smoke["latitude_map_click"]["click"]
+    assert click["longitude"] == pytest.approx(90.0, abs=1.0)
+    assert click["latitude"] == pytest.approx(45.0, abs=1.0)

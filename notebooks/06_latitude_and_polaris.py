@@ -19,21 +19,27 @@ def _(mo):
     mo.md(r"""
     # 6. Latitude, and the height of the pole star
 
-    Latitude is an angle at the centre of Earth: swing from the equator up to
-    where you are standing, and that is your latitude. It is not something you
-    can see, because you cannot get to the centre of Earth to measure it.
+        Latitude is an angle at the centre of Earth: swing from the equator up to
+        where you are standing, and that is your latitude. It is not something you
+        can see, because you cannot get to the centre of Earth to measure it.
 
-    But you can measure it, with a protractor and a clear night, because **the
-    pole star sits that same angle above your horizon**. Sailors navigated on
-    this for centuries.
+        But you can measure it, with a protractor and a clear night, because **the
+        pole star sits that same angle above your horizon**. Sailors navigated on
+        this for centuries.
 
-    Pick a place on the globe or on the map — they are the same choice, shown
-    twice — and the figure underneath works out why.
+        Pick a place on the globe or on the map — they are the same choice, shown
+        twice — and the figure underneath works out why.
 
-    In that figure the **dotted blue line** is the true celestial pole, exactly
-    parallel to Earth's axis. Polaris is the star just off it, riding the small
-    dotted circle it traces once a day. That circle is the entire error in the
-    method, and it is drawn far larger than life so you can see it at all.
+    One figure, two scales. In front: what you would actually do — stand
+        still, face north, and measure how high the pole sits above your horizon.
+        Behind it: the same corner drawn on a section of the Earth, which is why
+        that measurement is your latitude. The dashed lines join the two, because
+        the near view is simply the far one magnified.
+
+        The **dotted blue line** is the true celestial pole, exactly parallel to
+        Earth's axis. Polaris is the star just off it, riding the small
+        dotted circle it traces once a day. That circle is the entire error in the
+        method, and it is drawn far larger than life so you can see it at all.
     """)
     return
 

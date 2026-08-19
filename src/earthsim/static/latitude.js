@@ -124,7 +124,11 @@ export default {
         -((e.clientY - rect.top) / rect.height) * 2 + 1,
       );
       raycaster.setFromCamera(ndc, camera);
-      const hit = raycaster.intersectObject(earth.mesh)[0];
+      // Not recursive: the mesh carries a graticule, a parallel and a pin, and
+      // three's line intersections use a world-space threshold of 1 - enormous
+      // against a globe of radius 1. Left on, every click snapped to the
+      // nearest 30-degree line instead of landing where it was aimed.
+      const hit = raycaster.intersectObject(earth.mesh, false)[0];
       if (!hit) return;
       const local = earth.mesh.worldToLocal(hit.point.clone());
       const [lat, lon] = vec3ToLatLon(local.x, local.y, local.z);
@@ -173,31 +177,16 @@ export default {
     const LAT_COLOUR = "#c2410c";
     const CO_COLOUR = "#1d4ed8";
 
-    function arc(cx, cy, r, from, to, colour, width) {
-      dia.save();
-      dia.strokeStyle = colour;
-      dia.lineWidth = width || 2;
-      dia.beginPath();
-      dia.arc(cx, cy, r, from, to, to < from);
-      dia.stroke();
-      dia.restore();
+    function arc(ctx, cx, cy, r, from, to, colour, width) {
+      ctx.save();
+      ctx.strokeStyle = colour;
+      ctx.lineWidth = width || 2;
+      ctx.beginPath();
+      ctx.arc(cx, cy, r, from, to, to < from);
+      ctx.stroke();
+      ctx.restore();
     }
 
-    function tick(x, y, dx, dy, colour) {
-      // A chevron, the schoolbook mark for "these two lines are parallel".
-      const nx = -dy;
-      const ny = dx;
-      polyline(
-        dia,
-        [
-          [x - dx * 6 + nx * 5, y - dy * 6 + ny * 5],
-          [x + dx * 4, y + dy * 4],
-          [x - dx * 6 - nx * 5, y - dy * 6 - ny * 5],
-        ],
-        colour,
-        1.6,
-      );
-    }
 
     /* Polaris is 0.65 degrees off the pole, which at any scale that fits on a
      * screen is under a pixel. It is drawn far larger than that and said so;
@@ -213,52 +202,170 @@ export default {
       return from + delta / 2;
     }
 
-    function angleLabel(x, y, from, to, r, text, colour) {
+    function angleLabel(ctx, x, y, from, to, r, text, colour) {
       const at = midAngle(from, to);
-      label(dia, text, x + r * Math.cos(at), y + r * Math.sin(at) + 4, colour, "center");
+      label(ctx, text, x + r * Math.cos(at), y + r * Math.sin(at) + 4, colour, "center");
     }
 
-    function star(x, y, r, colour) {
-      dia.save();
-      dia.fillStyle = colour;
-      dia.beginPath();
+    function star(ctx, x, y, r, colour) {
+      ctx.save();
+      ctx.fillStyle = colour;
+      ctx.beginPath();
       for (let i = 0; i < 10; i++) {
         const a = -Math.PI / 2 + (i * Math.PI) / 5;
         const rad = i % 2 ? r * 0.42 : r;
         const sx = x + Math.cos(a) * rad;
         const sy = y + Math.sin(a) * rad;
-        if (i) dia.lineTo(sx, sy);
-        else dia.moveTo(sx, sy);
+        if (i) ctx.lineTo(sx, sy);
+        else ctx.moveTo(sx, sy);
       }
-      dia.closePath();
-      dia.fill();
-      dia.restore();
+      ctx.closePath();
+      ctx.fill();
+      ctx.restore();
     }
 
-    function dottedCircle(x, y, r, colour, dash) {
-      dia.save();
-      dia.setLineDash(dash || []);
-      dia.strokeStyle = colour;
-      dia.lineWidth = 1.4;
-      dia.beginPath();
-      dia.arc(x, y, r, 0, Math.PI * 2);
-      dia.stroke();
-      dia.restore();
+    function dottedCircle(ctx, x, y, r, colour, dash, width) {
+      ctx.save();
+      ctx.setLineDash(dash || []);
+      ctx.strokeStyle = colour;
+      ctx.lineWidth = width || 1.4;
+      ctx.beginPath();
+      ctx.arc(x, y, r, 0, Math.PI * 2);
+      ctx.stroke();
+      ctx.restore();
     }
 
-    function drawDiagram(readout) {
+    /* The right-angle mark, for the two corners the proof leans on. */
+    function square(ctx, x, y, ax, ay, bx, by, colour) {
+      const k = 10;
+      polyline(
+        ctx,
+        [
+          [x + ax * k, y + ay * k],
+          [x + ax * k + bx * k, y + ay * k + by * k],
+          [x + bx * k, y + by * k],
+        ],
+        colour,
+        1.2,
+      );
+    }
+
+    /* A standing figure, facing the way the sight line goes. */
+    function person(ctx, x, groundY, height, aimX, aimY, colour) {
+      const headR = height * 0.115;
+      const headY = groundY - height + headR;
+      const shoulderY = headY + headR * 1.9;
+      ctx.save();
+      ctx.strokeStyle = colour;
+      ctx.fillStyle = colour;
+      ctx.lineWidth = Math.max(2, height * 0.05);
+      ctx.lineCap = "round";
+      ctx.beginPath();
+      ctx.arc(x, headY, headR, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.beginPath();
+      ctx.moveTo(x, headY + headR);
+      ctx.lineTo(x, groundY - height * 0.34);
+      ctx.moveTo(x, groundY - height * 0.34);
+      ctx.lineTo(x - height * 0.15, groundY);
+      ctx.moveTo(x, groundY - height * 0.34);
+      ctx.lineTo(x + height * 0.17, groundY);
+      ctx.stroke();
+      ctx.beginPath();
+      ctx.moveTo(x, shoulderY);
+      ctx.lineTo(x + aimX * height * 0.46, shoulderY + aimY * height * 0.46);
+      ctx.stroke();
+      ctx.restore();
+      return { x, y: headY };
+    }
+
+    /* The foreground: one person, one horizon, and the angle they can measure.
+     * It is the corner of the section behind it, blown up. */
+    function drawScene(readout, box) {
       const lat = readout.latitude_deg;
       const phi = lat * DEG;
-      const R = Math.min(diaW * 0.30, diaH * 0.35);
-      const cx = R + 34;
-      const cy = diaH - R - 34;
-      const textX = Math.max(cx + R + 56, diaW * 0.6);
+      const groundY = box.y + box.h * 0.72;
+      const blocked = !readout.visible && lat !== 0;
 
-      dia.clearRect(0, 0, diaW, diaH);
-      dia.fillStyle = "#fbfaf6";
-      dia.fillRect(0, 0, diaW, diaH);
+      dia.save();
+      dia.beginPath();
+      dia.rect(box.x, box.y, box.w, box.h);
+      dia.clip();
 
-      // Earth in section, the equator across it and the axis running up.
+      dia.fillStyle = "#eef2fa";
+      dia.fillRect(box.x, box.y, box.w, groundY - box.y);
+      dia.fillStyle = "#dfe3d6";
+      dia.fillRect(box.x, groundY, box.w, box.y + box.h - groundY);
+      polyline(dia, [[box.x, groundY], [box.x + box.w, groundY]], INK, 2);
+
+      const height = Math.min(box.h * 0.17, 86);
+      const aim = { x: Math.cos(phi), y: -Math.sin(phi) };
+      const eye = person(
+        dia, box.x + box.w * 0.20, groundY, height, aim.x, aim.y, INK,
+      );
+      const reach = Math.min(
+        box.w * 0.62,
+        (eye.y - box.y - 34) / Math.max(0.16, Math.sin(Math.abs(phi))),
+      );
+      const poleX = eye.x + aim.x * reach;
+      const poleY = eye.y + aim.y * reach;
+
+      // Everything in the sky turns about the pole, which is how you find it.
+      for (const fraction of [0.24, 0.44, 0.64]) {
+        dottedCircle(
+          dia, poleX, poleY, reach * fraction, "rgba(29,78,216,0.20)", [2, 5],
+        );
+      }
+
+      polyline(dia, [[eye.x, eye.y], [eye.x + reach * 1.05, eye.y]], FAINT, 1.4, [6, 4]);
+      label(dia, "horizon", eye.x + reach * 0.86, eye.y - 8, FAINT);
+      polyline(
+        dia,
+        [[eye.x, eye.y], [eye.x, Math.max(box.y + 6, eye.y - reach * 0.92)]],
+        FAINT, 1.4, [4, 4],
+      );
+      label(dia, "zenith", eye.x + 8, Math.max(box.y + 18, eye.y - reach * 0.88), FAINT);
+      label(dia, "north", box.x + box.w - 10, groundY + 20, INK, "right");
+
+      polyline(
+        dia, [[eye.x, eye.y], [poleX, poleY]],
+        blocked ? "rgba(29,78,216,0.35)" : CO_COLOUR, 1.8, [3, 4],
+      );
+
+      const errorPx = reach * 0.055;
+      dottedCircle(dia, poleX, poleY, errorPx, "rgba(194,65,12,0.55)", [3, 3]);
+      const sx = poleX + errorPx * Math.cos(-0.6);
+      const sy = poleY + errorPx * Math.sin(-0.6);
+      polyline(dia, [[eye.x, eye.y], [sx, sy]], LAT_COLOUR, 1.4);
+      star(dia, sx, sy, 9, blocked ? "rgba(194,65,12,0.4)" : "#e8a33d");
+      label(dia, "Polaris", sx + 13, sy + 4, INK);
+      label(dia, "true pole", poleX - 12, poleY - errorPx - 10, CO_COLOUR, "right");
+
+      const toPole = Math.atan2(aim.y, aim.x);
+      arc(dia, eye.x, eye.y, reach * 0.30, 0, toPole, LAT_COLOUR, 2.5);
+      angleLabel(dia, eye.x, eye.y, 0, toPole, reach * 0.40, "φ′", LAT_COLOUR);
+      arc(dia, eye.x, eye.y, reach * 0.46, toPole, -Math.PI / 2, CO_COLOUR, 1.8);
+      angleLabel(dia, eye.x, eye.y, toPole, -Math.PI / 2, reach * 0.56, "θ′", CO_COLOUR);
+
+      if (blocked) {
+        label(dia, "the ground is in the way", box.x + 12, box.y + box.h - 14, INK);
+      }
+      dia.restore();
+
+      dia.save();
+      dia.strokeStyle = "rgba(60,70,90,0.4)";
+      dia.lineWidth = 1.2;
+      dia.strokeRect(box.x, box.y, box.w, box.h);
+      dia.restore();
+      label(dia, "what you can measure", box.x + 10, box.y + 20, INK);
+      return eye;
+    }
+
+    /* The background: Earth in section, and the angle nobody can reach. */
+    function drawSection(readout, cx, cy, R) {
+      const lat = readout.latitude_deg;
+      const phi = lat * DEG;
+
       dia.save();
       dia.strokeStyle = INK;
       dia.lineWidth = 2;
@@ -267,141 +374,97 @@ export default {
       dia.stroke();
       dia.restore();
 
-      polyline(dia, [[cx - R * 1.3, cy], [cx + R * 1.35, cy]], FAINT, 1.4, [6, 4]);
-      label(dia, "equator", cx - R * 1.3, cy - 8, FAINT);
-      polyline(dia, [[cx, cy + R * 1.2], [cx, 8]], CO_COLOUR, 1.4, [5, 5]);
-      label(dia, "Earth's axis", cx + 7, cy - R * 1.12, CO_COLOUR);
+      polyline(dia, [[cx - R * 1.25, cy], [cx + R * 1.3, cy]], FAINT, 1.4, [6, 4]);
+      label(dia, "equator", cx - R * 1.25, cy - 8, FAINT);
+      polyline(dia, [[cx, cy + R * 1.15], [cx, cy - R * 2.1]], CO_COLOUR, 1.4, [5, 5]);
+      label(dia, "axis → pole", cx + 7, cy - R * 1.95, CO_COLOUR);
 
-      // The place, its radius, and the angle that names it.
       const px = cx + R * Math.cos(phi);
       const py = cy - R * Math.sin(phi);
       polyline(dia, [[cx, cy], [px, py]], INK, 2);
-      arc(cx, cy, R * 0.26, 0, -phi, LAT_COLOUR, 2.5);
-      angleLabel(cx, cy, 0, -phi, R * 0.38, "φ", LAT_COLOUR);
-      arc(cx, cy, R * 0.46, -phi, -Math.PI / 2, CO_COLOUR, 1.8);
-      angleLabel(cx, cy, -phi, -Math.PI / 2, R * 0.60, "θ", CO_COLOUR);
+      arc(dia, cx, cy, R * 0.26, 0, -phi, LAT_COLOUR, 2.5);
+      angleLabel(dia, cx, cy, 0, -phi, R * 0.38, "φ", LAT_COLOUR);
+      arc(dia, cx, cy, R * 0.46, -phi, -Math.PI / 2, CO_COLOUR, 1.8);
+      angleLabel(dia, cx, cy, -phi, -Math.PI / 2, R * 0.60, "θ", CO_COLOUR);
 
-      // Horizon, zenith, and the sight line north.
       const zx = Math.cos(phi);
       const zy = -Math.sin(phi);
       const hx = -Math.sin(phi);
       const hy = -Math.cos(phi);
-      const reach = R * 0.95;
+      const reach = R * 0.85;
       polyline(
         dia,
         [
-          [px - hx * reach * 0.7, py - hy * reach * 0.7],
+          [px - hx * reach * 0.6, py - hy * reach * 0.6],
           [px + hx * reach, py + hy * reach],
         ],
-        INK,
-        2,
+        INK, 2,
       );
-      polyline(
-        dia,
-        [[px, py], [px + zx * reach * 0.6, py + zy * reach * 0.6]],
-        FAINT,
-        1.4,
-        [4, 4],
-      );
+      polyline(dia, [[px, py], [px + zx * reach * 0.5, py + zy * reach * 0.5]],
+               FAINT, 1.4, [4, 4]);
+      polyline(dia, [[px, py], [px, py - reach * 0.95]], CO_COLOUR, 1.8, [3, 4]);
+      star(dia, px, py - reach * 0.95, 7, "#e8a33d");
 
-      // The true celestial pole: dotted, exactly parallel to the axis. This is
-      // the direction the whole argument is about; Polaris only approximates it.
-      const poleLength = R * 0.72;
-      const poleY = py - poleLength;
-      const blocked = !readout.visible && lat !== 0;
-      polyline(
-        dia,
-        [[px, py], [px, poleY]],
-        blocked ? "rgba(29,78,216,0.35)" : CO_COLOUR,
-        1.8,
-        [3, 4],
-      );
-
-      // Polaris rides a small circle round that pole, once a day. The radius of
-      // this circle is the error, and it is what "approximately" means.
-      const errorPx = poleLength * ERROR_DRAW;
-      dottedCircle(px, poleY, errorPx, "rgba(194,65,12,0.55)", [3, 3]);
-      const wander = -0.6;
-      const sx = px + errorPx * Math.cos(wander);
-      const sy = poleY + errorPx * Math.sin(wander);
-      polyline(dia, [[px, py], [sx, sy]], LAT_COLOUR, 1.6);
-      star(sx, sy, 9, blocked ? "rgba(194,65,12,0.45)" : "#e8a33d");
-      label(dia, "Polaris", sx + 13, sy + 4, INK);
-      label(dia, "true pole", px + 8, poleY - errorPx - 8, CO_COLOUR);
-      label(
-        dia,
-        readout.polaris_separation_deg.toFixed(2) + "° off — drawn far larger",
-        px + 8,
-        poleY - errorPx - 24,
-        LAT_COLOUR,
-      );
-
-      // The two angles the proof turns on, measured to the true pole.
       const toPole = -Math.PI / 2;
-      const toHorizon = Math.atan2(hy, hx);
-      const toZenith = Math.atan2(zy, zx);
-      arc(px, py, R * 0.34, toHorizon, toPole, LAT_COLOUR, 2.5);
-      angleLabel(px, py, toHorizon, toPole, R * 0.46, "φ′", LAT_COLOUR);
-      arc(px, py, R * 0.50, toPole, toZenith, CO_COLOUR, 1.8);
-      angleLabel(px, py, toPole, toZenith, R * 0.64, "θ′", CO_COLOUR);
+      arc(dia, px, py, R * 0.30, Math.atan2(hy, hx), toPole, LAT_COLOUR, 2.5);
+      angleLabel(dia, px, py, Math.atan2(hy, hx), toPole, R * 0.42, "φ′", LAT_COLOUR);
+      arc(dia, px, py, R * 0.44, toPole, Math.atan2(zy, zx), CO_COLOUR, 1.8);
+      angleLabel(dia, px, py, toPole, Math.atan2(zy, zx), R * 0.56, "θ′", CO_COLOUR);
 
       dot(dia, px, py, "#ff5f7e", 5, false);
-      label(dia, "you", px + hx * 18 - 22, py + hy * 18 + 4, INK);
-      label(dia, "horizon", px + hx * reach - 6, py + hy * reach - 8, INK, "right");
-      label(dia, "zenith", px + zx * reach * 0.64, py + zy * reach * 0.64 + 4, FAINT);
-      if (blocked) {
-        label(dia, "Earth is in the way", px + 10, py - poleLength * 0.45, FAINT);
-      }
+      square(dia, cx, cy, 1, 0, 0, -1, FAINT);
+      square(dia, px, py, hx, hy, zx, zy, FAINT);
+      label(dia, "why it is your latitude", cx - R, cy + R * 1.42, INK, "center");
+      return { x: px, y: py };
+    }
 
-      square(cx, cy, 1, 0, 0, -1, FAINT);
-      square(px, py, hx, hy, zx, zy, FAINT);
+    function drawDiagram(readout) {
+      const lat = readout.latitude_deg;
+
+      dia.clearRect(0, 0, diaW, diaH);
+      dia.fillStyle = "#fbfaf6";
+      dia.fillRect(0, 0, diaW, diaH);
+
+      const box = {
+        x: 26,
+        y: 22,
+        w: Math.min(diaW * 0.50, 560),
+        h: diaH * 0.60,
+      };
+      const R = Math.min(diaW * 0.17, diaH * 0.20);
+      const cx = Math.min(diaW - R * 1.4 - 24, box.x + box.w + R * 1.5 + 30);
+      const cy = box.y + R * 2.3;
+
+      const P = drawSection(readout, cx, cy, R);
+      const eye = drawScene(readout, box);
+
+      // The callout: the scene is that point on the section, magnified.
+      polyline(dia, [[P.x, P.y], [box.x + box.w, box.y]], FAINT, 1, [4, 4]);
+      polyline(dia, [[P.x, P.y], [box.x + box.w, box.y + box.h]], FAINT, 1, [4, 4]);
 
       const co = 90 - lat;
       const lines = [
-        "φ   angle at Earth's centre, equator to you   = " + lat.toFixed(1) + "°",
-        "θ   angle at Earth's centre, axis to you      = " + co.toFixed(1) + "°",
-        "θ′  angle at your feet, pole to your zenith   = " + co.toFixed(1) + "°",
-        "φ′  angle at your feet, horizon to the pole   = " + lat.toFixed(1) + "°",
+        "φ   at Earth's centre, equator to you        = " + lat.toFixed(1) + "°",
+        "θ   at Earth's centre, axis to you           = " + co.toFixed(1) + "°",
+        "θ′  at your feet, pole to your zenith        = " + co.toFixed(1) + "°",
+        "φ′  at your feet, horizon to the pole        = " + lat.toFixed(1) + "°",
         "",
-        "Polaris is 433 light years off, so every line drawn to it is parallel",
-        "to Earth's axis. Your radius cuts both of those parallels, which makes",
-        "θ′ = θ: alternate angles, nothing more.",
-        "",
-        "Your zenith runs along that radius and your horizon is square to it,",
-        "so φ′ = 90° − θ′ = 90° − θ = φ.",
-        "",
-        "The two orange angles are therefore the same angle, which is why the",
-        "height of the pole tells you where you are.",
+        "Polaris is 433 light years off, so every line drawn to it is parallel to Earth's axis.",
+        "Your radius cuts both of those parallels, which makes θ′ = θ: alternate angles, nothing more.",
+        "Your zenith runs along that radius and your horizon is square to it, so φ′ = 90° − θ′ = 90° − θ = φ.",
         "",
         "The dotted circle is the only slack in it. Polaris sits "
-          + readout.polaris_separation_deg.toFixed(2) + "° from",
-        "the true pole and circles it once a day, so its height wanders that",
-        "much either side of your latitude.",
+          + readout.polaris_separation_deg.toFixed(2)
+          + "° from the true pole and circles it once a day,",
+        "so its height wanders that much either side of your latitude. It is drawn far larger than that here.",
         "",
         readout.headline,
       ];
-      lines.forEach((line, i) => {
+      lines.forEach((line, i) =>
         label(
-          dia,
-          line,
-          textX,
-          32 + i * 19,
+          dia, line, 26, box.y + box.h + 34 + i * 19,
           i === lines.length - 1 ? LAT_COLOUR : INK,
-        );
-      });
-    }
-
-    function square(x, y, ax, ay, bx, by, colour) {
-      const k = 11;
-      polyline(
-        dia,
-        [
-          [x + ax * k, y + ay * k],
-          [x + ax * k + bx * k, y + ay * k + by * k],
-          [x + bx * k, y + by * k],
-        ],
-        colour,
-        1.2,
+        ),
       );
     }
 

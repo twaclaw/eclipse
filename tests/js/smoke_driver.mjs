@@ -49,6 +49,7 @@ function context2d() {
 
 function element(tag = "div") {
   const found = new Map();
+  const listeners = new Map();
   const el = {
     tag,
     style: {},
@@ -59,8 +60,20 @@ function element(tag = "div") {
     innerHTML: "",
     parentElement: { clientWidth: 900, clientHeight: 420 },
     getContext: () => context2d(),
-    addEventListener() {},
-    removeEventListener() {},
+    addEventListener(type, fn) {
+      if (!listeners.has(type)) listeners.set(type, []);
+      listeners.get(type).push(fn);
+    },
+    removeEventListener(type, fn) {
+      const list = listeners.get(type) || [];
+      const at = list.indexOf(fn);
+      if (at >= 0) list.splice(at, 1);
+    },
+    // Lets a run send a real click through the real handler, which is the only
+    // way to cover picking without a browser.
+    dispatch(type, event) {
+      for (const fn of listeners.get(type) || []) fn(event);
+    },
     setPointerCapture() {},
     releasePointerCapture() {},
     getBoundingClientRect: () => ({ left: 0, top: 0, width: 900, height: 420 }),
@@ -142,7 +155,8 @@ for (const run of spec.runs) {
     );
     const el = element();
     frames.length = 0;
-    const cleanup = await mod.default.render({ model: fakeModel(run.state), el });
+    const model = fakeModel(run.state);
+    const cleanup = await mod.default.render({ model, el });
 
     // Setup reports a texture failure by writing into the status line rather
     // than throwing, so check that separately.
@@ -167,6 +181,28 @@ for (const run of spec.runs) {
       clocks.push(text(".es-clock"));
       record.frames += 1;
     }
+    // Optional: press and release on a canvas, and see where it puts things.
+    if (run.click) {
+      const target = el.querySelector(run.click.selector);
+      const at = {
+        clientX: run.click.x,
+        clientY: run.click.y,
+        pointerId: 1,
+      };
+      if (target) {
+        target.dispatch("pointerdown", at);
+        target.dispatch("pointerup", at);
+        target.dispatch("click", at);
+      }
+      const three = await import(STUB);
+      record.click = {
+        latitude: model.get("latitude"),
+        longitude: model.get("longitude"),
+        marker: model.get("marker"),
+        recursive: three.Raycaster.lastRecursive,
+      };
+    }
+
     record.clock = text(".es-clock");
     record.clocks = clocks;
     record.transport = text(".es-play");

@@ -71,10 +71,23 @@ class Object3D {
 
 export class Raycaster {
   setFromCamera() {}
-  intersectObject() {
-    return [];
+  /* Hands back one hit at a known place - 30N 45E on a unit sphere - and
+   * records whether descendants were included, which is the difference
+   * between picking the globe and picking its graticule. */
+  intersectObject(object, recursive) {
+    Raycaster.lastRecursive = recursive;
+    return [
+      {
+        object,
+        point: new Vec3(
+          Raycaster.hit.x, Raycaster.hit.y, Raycaster.hit.z,
+        ),
+      },
+    ];
   }
 }
+Raycaster.lastRecursive = undefined;
+Raycaster.hit = { x: 0.6123724, y: 0.5, z: -0.6123724 };
 
 class Geometry {
   setFromPoints(points) {
