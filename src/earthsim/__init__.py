@@ -11,6 +11,7 @@ from .track import (
     eclipse_summary,
     eclipse_track,
     moon_track,
+    transit_view,
     year_track,
 )
 from .widgets import (
@@ -21,6 +22,7 @@ from .widgets import (
     MoonPhasesWidget,
     SeasonsWidget,
     SolarEclipseWidget,
+    TransitWidget,
 )
 
 __all__ = [
@@ -31,9 +33,11 @@ __all__ = [
     "MoonPhasesWidget",
     "SeasonsWidget",
     "SolarEclipseWidget",
+    "TransitWidget",
     "date_label",
     "day_track",
     "eclipse_summary",
+    "transit_view",
     "eclipse_track",
     "moon_track",
     "phase_name",

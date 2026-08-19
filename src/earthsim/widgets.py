@@ -24,7 +24,7 @@ from .astronomy import (
     polaris_altitude_range_deg,
     pole_star_is_up,
 )
-from .track import day_track, eclipse_track, moon_track, year_track
+from .track import transit_view, day_track, eclipse_track, moon_track, year_track
 
 _STATIC = pathlib.Path(__file__).parent / "static"
 _CSS = (_STATIC / "widget.css").read_text()
@@ -259,3 +259,37 @@ class LatitudeWidget(_Base):
             "visible": up,
             "headline": headline,
         }
+
+
+class TransitWidget(_Base):
+    """Animation 7: the transit of Venus, and the scale of the solar system."""
+
+    _esm = _bundle("earthkit.js", "transit.js")
+
+    #: Separation of the two observers, projected across the line of sight.
+    baseline_km = traitlets.Float(8_000.0).tag(sync=True)
+    #: How far the nearer chord runs from the sun's centre, in arcseconds.
+    impact_arcsec = traitlets.Float(400.0).tag(sync=True)
+    #: How sharply each contact can be timed.
+    timing_seconds = traitlets.Float(10.0).tag(sync=True)
+    #: The real gap between the chords is 3% of the sun's radius. This widens
+    #: it for the drawing only; 1 is the truth.
+    gap_boost = traitlets.Float(6.0).tag(sync=True)
+    hours = traitlets.Float(0.0).tag(sync=True)
+
+    #: Everything both panels draw; see :func:`earthsim.track.transit_view`.
+    view = traitlets.Dict().tag(sync=True)
+
+    def __init__(self, **kwargs):
+        kwargs.setdefault("playing", False)
+        super().__init__(**kwargs)
+        self._rebuild()
+
+    @traitlets.observe("baseline_km", "impact_arcsec", "timing_seconds")
+    def _on_setup(self, _change) -> None:
+        self._rebuild()
+
+    def _rebuild(self) -> None:
+        self.view = transit_view(
+            self.baseline_km, self.impact_arcsec, self.timing_seconds
+        )

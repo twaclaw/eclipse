@@ -461,3 +461,92 @@ def polaris_altitude_range_deg(lat_deg):
 def pole_star_is_up(lat_deg) -> bool:
     """Whether the north celestial pole is above the horizon at all."""
     return float(lat_deg) > 0.0
+
+
+# ------------------------------------------------------ the transit of Venus
+
+VENUS_SEMI_MAJOR_AU = 0.723332
+VENUS_RADIUS_KM = 6_051.8
+EARTH_ORBIT_SPEED_KMS = 29.7827
+VENUS_ORBIT_SPEED_KMS = 35.0214
+
+ARCSEC = 3600.0
+
+
+def sun_angular_radius_arcsec(au_km=AU_KM):
+    return float(np.degrees(np.arctan(SUN_RADIUS_KM / au_km)) * ARCSEC)
+
+
+def venus_angular_radius_arcsec(au_km=AU_KM, ratio=VENUS_SEMI_MAJOR_AU):
+    """Venus's disc during a transit, when it is closest to us."""
+    gap = (1.0 - ratio) * au_km
+    return float(np.degrees(np.arctan(VENUS_RADIUS_KM / gap)) * ARCSEC)
+
+
+def chord_separation_arcsec(baseline_km, au_km=AU_KM, ratio=VENUS_SEMI_MAJOR_AU):
+    """How far apart two observers see Venus cross the sun.
+
+    Two sight lines cross *at Venus*, so the angle they make there is the same
+    on both sides - vertically opposite. That gives the separation on the sun
+    as ``baseline x a_venus / d``, and dividing by the Earth-sun distance turns
+    it into the angle we actually measure.
+
+    Kepler's third law fixes ``ratio`` from the orbital periods alone, so this
+    is the one relation that converts a measured angle into an absolute size.
+    """
+    return float(
+        np.degrees(baseline_km / au_km * ratio / (1.0 - ratio)) * ARCSEC
+    )
+
+
+def au_from_chord_separation(
+    baseline_km, separation_arcsec, ratio=VENUS_SEMI_MAJOR_AU
+):
+    """The point of the whole exercise: an absolute distance, in kilometres."""
+    return float(
+        baseline_km
+        * (ratio / (1.0 - ratio))
+        / np.radians(np.asarray(separation_arcsec, float) / ARCSEC)
+    )
+
+
+def transit_rate_arcsec_per_hour(au_km=AU_KM, ratio=VENUS_SEMI_MAJOR_AU):
+    """How fast Venus crosses the sun's face.
+
+    Both terms matter. Venus slides one way against the sky, and Earth's own
+    motion slides the sun the other way; leaving the second one out makes the
+    transit last three times too long.
+    """
+    gap_km = (1.0 - ratio) * au_km
+    venus = (VENUS_ORBIT_SPEED_KMS - EARTH_ORBIT_SPEED_KMS) / gap_km
+    sun = EARTH_ORBIT_SPEED_KMS / au_km
+    return float(np.degrees(venus + sun) * ARCSEC * 3600.0)
+
+
+def transit_duration_hours(impact_arcsec, au_km=AU_KM, ratio=VENUS_SEMI_MAJOR_AU):
+    """Centre-to-centre crossing time for a chord at this distance from the
+    sun's middle. Zero if the chord misses the disc entirely."""
+    radius = sun_angular_radius_arcsec(au_km)
+    impact = abs(float(impact_arcsec))
+    if impact >= radius:
+        return 0.0
+    half = np.sqrt(radius**2 - impact**2)
+    return float(2.0 * half / transit_rate_arcsec_per_hour(au_km, ratio))
+
+
+def impact_uncertainty_arcsec(
+    impact_arcsec, timing_seconds, au_km=AU_KM, ratio=VENUS_SEMI_MAJOR_AU
+):
+    """How badly a timing error blurs one chord's distance from the centre.
+
+    Note where it blows up: dead across the middle, a chord's length barely
+    changes when you nudge it sideways, so the timing tells you almost nothing.
+    Halley knew this - the method wants chords well off centre.
+    """
+    radius = sun_angular_radius_arcsec(au_km)
+    impact = abs(float(impact_arcsec))
+    if impact >= radius or impact == 0.0:
+        return float("inf")
+    half = np.sqrt(radius**2 - impact**2)
+    rate = transit_rate_arcsec_per_hour(au_km, ratio)
+    return float(abs(timing_seconds / 3600.0) * rate * half / (2.0 * impact))

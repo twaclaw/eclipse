@@ -28,8 +28,13 @@ from .astronomy import (
     SUN_RADIUS_KM,
     SYNODIC_MONTH,
     TROPIC_DEG,
+    AU_KM,
+    VENUS_SEMI_MAJOR_AU,
     angular_radius_deg,
+    au_from_chord_separation,
+    chord_separation_arcsec,
     eclipse_magnitude,
+    impact_uncertainty_arcsec,
     daily_insolation,
     day_length_hours,
     earth_position_au,
@@ -54,9 +59,13 @@ from .astronomy import (
     sun_ecliptic_longitude,
     sun_elevation_deg,
     sun_elevation_local_deg,
+    sun_angular_radius_arcsec,
     sunrise_sunset_hours,
     syzygy_longitude_offset_deg,
+    transit_duration_hours,
+    transit_rate_arcsec_per_hour,
     terminator_lat_deg,
+    venus_angular_radius_arcsec,
 )
 from .labels import (
     PHASE_NAMES_ES,
@@ -533,4 +542,75 @@ def eclipse_summary(track: dict, node_offset_deg: float) -> dict:
         "magnitude": eclipse_magnitude(closest, covered, covering),
         "duration_hours": float(np.count_nonzero(inside)) * (hours[1] - hours[0]),
         "during": during,
+    }
+
+
+# ------------------------------------------------------ 7. transit of Venus
+
+
+def transit_view(
+    baseline_km: float = 8_000.0,
+    impact_arcsec: float = 400.0,
+    timing_seconds: float = 10.0,
+) -> dict:
+    """One transit as two observers a baseline apart would time it.
+
+    Everything the two panels draw and everything the notebook prints, worked
+    out here. The last three entries are the payoff: an absolute distance in
+    kilometres, recovered from an angle and a baseline, and how well you would
+    know it given how sharply you can time a contact.
+    """
+    radius = sun_angular_radius_arcsec()
+    separation = chord_separation_arcsec(baseline_km)
+    near = float(impact_arcsec)
+    far = near + separation
+
+    durations = [transit_duration_hours(near), transit_duration_hours(far)]
+    blur = np.hypot(
+        impact_uncertainty_arcsec(near, timing_seconds),
+        impact_uncertainty_arcsec(far, timing_seconds),
+    )
+    recovered = au_from_chord_separation(baseline_km, separation)
+    # Infinity is not JSON, and a trait has to cross to the browser as JSON.
+    # An unmeasurable case travels as null and is described in words instead.
+    usable = separation > 0 and bool(np.isfinite(blur))
+    error = float(blur / separation) if usable else None
+    longest = max(durations) or 1.0
+
+    if not durations[0] or not durations[1]:
+        headline = (
+            "One of the two chords misses the sun altogether, so there is "
+            "nothing to compare."
+        )
+    elif error is None:
+        headline = (
+            "A chord straight across the middle barely changes length when it "
+            "shifts sideways, so its timing says almost nothing about where "
+            "it is. The method needs chords well off centre."
+        )
+    else:
+        headline = (
+            f"Timing each contact to {timing_seconds:.0f} s puts the "
+            f"astronomical unit within {error * 100:.1f}% - "
+            f"{recovered * error / 1e6:,.1f} million km either way."
+        )
+
+    return {
+        "baseline_km": float(baseline_km),
+        "sun_radius_arcsec": radius,
+        "venus_radius_arcsec": venus_angular_radius_arcsec(),
+        "rate_arcsec_per_hour": transit_rate_arcsec_per_hour(),
+        "impact_arcsec": [near, far],
+        "duration_hours": durations,
+        "duration_gap_minutes": abs(durations[0] - durations[1]) * 60.0,
+        "separation_arcsec": separation,
+        "separation_fraction": separation / radius,
+        "orbit_ratio": VENUS_SEMI_MAJOR_AU,
+        "timing_seconds": float(timing_seconds),
+        "span_hours": longest * 0.62,
+        "au_km": recovered,
+        "au_true_km": AU_KM,
+        "au_error_fraction": error,
+        "measurable": usable and all(durations),
+        "headline": headline,
     }

@@ -8,6 +8,8 @@ perturbations.
 
 from __future__ import annotations
 
+import json
+
 import numpy as np
 import pytest
 
@@ -24,6 +26,7 @@ from earthsim.track import (
     day_track,
     eclipse_summary,
     eclipse_track,
+    transit_view,
     moon_track,
     year_track,
 )
@@ -720,3 +723,91 @@ def test_the_widget_says_what_is_true_at_each_latitude():
     assert "above your horizon" in LatitudeWidget(latitude=51.5).readout["headline"]
     assert "on the horizon" in LatitudeWidget(latitude=0.0).readout["headline"]
     assert "below your horizon" in LatitudeWidget(latitude=-33.9).readout["headline"]
+
+
+# ------------------------------------------------ 7. the transit of Venus
+
+
+def test_transit_matches_what_was_actually_seen():
+    """The observables, against the record."""
+    assert 2 * ast.sun_angular_radius_arcsec() == pytest.approx(1919, abs=2)
+    assert 2 * ast.venus_angular_radius_arcsec() == pytest.approx(59, abs=2)
+    # A central crossing is the longest possible, about eight hours.
+    assert ast.transit_duration_hours(0.0) == pytest.approx(7.9, abs=0.2)
+    # 2012 ran six hours forty minutes, on a chord about half a radius out.
+    assert ast.transit_duration_hours(521.0) == pytest.approx(6.67, abs=0.1)
+
+
+def test_the_suns_own_motion_is_in_the_crossing_rate():
+    """Forgetting it makes the transit last three times too long, which is the
+    kind of error a diagram will happily hide."""
+    rate = ast.transit_rate_arcsec_per_hour()
+    venus_only = np.degrees(
+        (ast.VENUS_ORBIT_SPEED_KMS - ast.EARTH_ORBIT_SPEED_KMS)
+        / ((1 - ast.VENUS_SEMI_MAJOR_AU) * ast.AU_KM)
+    ) * 3600 * 3600
+    assert rate == pytest.approx(242, abs=3)
+    assert venus_only == pytest.approx(94, abs=3)
+    assert rate > 2.5 * venus_only
+
+
+@pytest.mark.parametrize("baseline", [1_000.0, 6_371.0, 8_000.0, 12_742.0])
+def test_the_measurement_recovers_the_astronomical_unit(baseline):
+    """Forward then back: the angle a baseline produces must give the baseline's
+    own distance scale back again."""
+    separation = ast.chord_separation_arcsec(baseline)
+    assert ast.au_from_chord_separation(baseline, separation) == pytest.approx(
+        ast.AU_KM, rel=1e-12
+    )
+
+
+def test_the_separation_is_bigger_than_the_baseline():
+    """The piece of luck the method runs on: sight lines crossing at Venus
+    spread out by the ratio of the two distances, about 2.6 to 1."""
+    ratio = ast.VENUS_SEMI_MAJOR_AU / (1 - ast.VENUS_SEMI_MAJOR_AU)
+    assert ratio == pytest.approx(2.61, abs=0.01)
+    baseline = 8_000.0
+    on_the_sun = np.radians(
+        ast.chord_separation_arcsec(baseline) / 3600
+    ) * ast.AU_KM
+    assert on_the_sun == pytest.approx(baseline * ratio, rel=1e-9)
+
+
+def test_a_central_chord_tells_you_nothing():
+    """Duration is stationary in the impact parameter at the centre, so the
+    timing carries no information about where the chord is."""
+    assert ast.impact_uncertainty_arcsec(0.0, 10.0) == float("inf")
+    off_centre = ast.impact_uncertainty_arcsec(600.0, 10.0)
+    nearer_middle = ast.impact_uncertainty_arcsec(100.0, 10.0)
+    assert off_centre < nearer_middle
+
+
+def test_timing_precision_sets_the_answer():
+    """Ten seconds gets a few percent, which is what the 1761 and 1769
+    expeditions managed. A couple of minutes gets nothing worth having."""
+    sharp = transit_view(timing_seconds=10.0)["au_error_fraction"]
+    blunt = transit_view(timing_seconds=120.0)["au_error_fraction"]
+    assert sharp == pytest.approx(0.034, abs=0.01)
+    assert blunt > 0.2
+    assert transit_view(timing_seconds=2.0)["au_error_fraction"] < 0.01
+
+
+@pytest.mark.parametrize("impact", [400.0, 0.0, 950.0, -959.0, -880.0, 1200.0])
+def test_the_transit_payload_is_always_valid_json(impact):
+    """A central or grazing chord makes the uncertainty infinite, and infinity
+    is not JSON - it would cross to the browser as a parse error and take the
+    whole panel down. Unmeasurable travels as null instead."""
+    payload = json.dumps(transit_view(impact_arcsec=impact))
+    assert "Infinity" not in payload
+    assert "NaN" not in payload
+    view = transit_view(impact_arcsec=impact)
+    assert view["measurable"] is (view["au_error_fraction"] is not None
+                                  and all(view["duration_hours"]))
+
+
+def test_a_wider_baseline_measures_better():
+    narrow = transit_view(baseline_km=1_000.0)
+    wide = transit_view(baseline_km=12_742.0)
+    assert wide["separation_arcsec"] > narrow["separation_arcsec"]
+    assert wide["au_error_fraction"] < narrow["au_error_fraction"]
+    assert wide["duration_gap_minutes"] > narrow["duration_gap_minutes"]

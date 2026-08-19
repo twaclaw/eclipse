@@ -28,6 +28,7 @@ from earthsim.widgets import (
     MoonPhasesWidget,
     SeasonsWidget,
     SolarEclipseWidget,
+    TransitWidget,
 )
 
 ROOT = Path(__file__).resolve().parent.parent
@@ -151,6 +152,21 @@ def build_runs() -> list[dict]:
             "name": "latitude_pole",
             "modules": ["earthkit.js", "latitude.js"],
             "state": widget_state(LatitudeWidget(latitude=90.0)),
+        },
+        {
+            "name": "transit_default",
+            "modules": ["earthkit.js", "transit.js"],
+            "state": widget_state(TransitWidget()),
+        },
+        {
+            "name": "transit_central",
+            "modules": ["earthkit.js", "transit.js"],
+            "state": widget_state(TransitWidget(impact_arcsec=0.0)),
+        },
+        {
+            "name": "transit_grazing",
+            "modules": ["earthkit.js", "transit.js"],
+            "state": widget_state(TransitWidget(impact_arcsec=950.0)),
         },
         {
             "name": "eclipse_lunar",

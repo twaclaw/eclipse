@@ -247,7 +247,16 @@
 /* The latitude proof is a schoolbook figure, so it gets paper rather than sky. */
 .es-diagram {
   margin-top: 10px;
-  height: 660px;
+  height: 800px;
   background: #fbfaf6;
   border-color: rgba(60, 70, 90, 0.25);
+}
+
+.es-transitfig {
+  height: 430px;
+}
+
+.es-sundisc {
+  margin-top: 10px;
+  height: 380px;
 }
