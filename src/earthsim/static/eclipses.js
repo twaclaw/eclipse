@@ -40,6 +40,7 @@ export default {
         sliderHTML("node", "node"),
         sliderHTML("zoom", "zoom"),
         sliderHTML("when", "when"),
+        fullscreenHTML(),
       )}
       <div class="es-status">loading textures&hellip;</div>`;
 
@@ -550,6 +551,8 @@ export default {
       format: (v) => (v >= 0 ? "+" : "\u2212") + fmtHM(Math.abs(v)),
     });
 
+    const fullscreen = attachFullscreen(el);
+
     let hours = model.get("hours");
     let last = performance.now();
     let raf = 0;
@@ -644,6 +647,7 @@ export default {
       node.dispose();
       zoom.dispose();
       when.dispose();
+      fullscreen.dispose();
       gate.dispose();
       ro3d.disconnect();
       roPlane.disconnect();

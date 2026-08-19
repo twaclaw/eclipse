@@ -28,6 +28,7 @@ export default {
         sliderHTML("timing", "timing"),
         sliderHTML("boost", "gap ×"),
         sliderHTML("when", "when"),
+        fullscreenHTML(),
       )}`;
 
     const cfig = el.querySelector(".es-cfig");
@@ -325,6 +326,8 @@ export default {
       format: (v) => (v >= 0 ? "+" : "−") + fmtHM(Math.abs(v)),
     });
 
+    const fullscreen = attachFullscreen(el);
+
     let raf = 0;
     const gate = visibilityGate(el);
 
@@ -345,6 +348,7 @@ export default {
       timing.dispose();
       boost.dispose();
       when.dispose();
+      fullscreen.dispose();
       gate.dispose();
       roFig.disconnect();
       roSun.disconnect();

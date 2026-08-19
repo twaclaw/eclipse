@@ -33,6 +33,7 @@ export default {
         sliderHTML("speed", "cycle"),
         sliderHTML("light", "moon"),
         sliderHTML("when", "when"),
+        fullscreenHTML(),
       )}
       <div class="es-status">loading textures&hellip;</div>`;
 
@@ -232,6 +233,8 @@ export default {
       format: (v) => "day " + Number(v).toFixed(1),
     });
 
+    const fullscreen = attachFullscreen(el);
+
     let age = model.get("age_days");
     let last = performance.now();
     let raf = 0;
@@ -283,6 +286,7 @@ export default {
       light.dispose();
       when.dispose();
       orbit.dispose();
+      fullscreen.dispose();
       gate.dispose();
       ro3d.disconnect();
       ro2d.disconnect();

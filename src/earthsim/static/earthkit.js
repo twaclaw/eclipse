@@ -436,6 +436,64 @@ function controlBar(...parts) {
   return `<div class="es-controls">${parts.join("")}</div>`;
 }
 
+/* Full screen, driven by the widget rather than the notebook around it: in
+ * marimo's app mode the cell chrome is gone, so nothing else offers it. */
+function fullscreenHTML() {
+  return `<button class="es-full" type="button"></button>`;
+}
+
+function attachFullscreen(el) {
+  const button = el.querySelector(".es-full");
+  const enter =
+    el.requestFullscreen || el.webkitRequestFullscreen || el.msRequestFullscreen;
+  if (!button) return { dispose() {} };
+  if (!enter) {
+    button.style.display = "none";
+    return { dispose() {} };
+  }
+
+  // The widget lives in a shadow root, and document.fullscreenElement
+  // retargets to the shadow host - so comparing against it never matches.
+  // Asking the element whether it is the fullscreen one avoids that entirely.
+  const isOn = () => {
+    for (const selector of [":fullscreen", ":-webkit-full-screen"]) {
+      try {
+        if (el.matches(selector)) return true;
+      } catch (_) {
+        // Older engines throw on a pseudo-class they do not know.
+      }
+    }
+    return false;
+  };
+  const paint = () => {
+    button.textContent = isOn() ? "\u2715" : "\u2922";
+    button.title = isOn() ? "leave full screen" : "full screen";
+  };
+  const toggle = () => {
+    if (isOn()) {
+      const leave = document.exitFullscreen || document.webkitExitFullscreen;
+      if (leave) leave.call(document);
+    } else {
+      // Rejects if the browser refuses; there is nothing useful to do about it
+      // beyond not letting it become an unhandled rejection.
+      const asked = enter.call(el);
+      if (asked && asked.catch) asked.catch(() => {});
+    }
+  };
+
+  button.addEventListener("click", toggle);
+  document.addEventListener("fullscreenchange", paint);
+  document.addEventListener("webkitfullscreenchange", paint);
+  paint();
+  return {
+    dispose() {
+      button.removeEventListener("click", toggle);
+      document.removeEventListener("fullscreenchange", paint);
+      document.removeEventListener("webkitfullscreenchange", paint);
+    },
+  };
+}
+
 function playHTML() {
   return `<button class="es-play" type="button" title="play or pause"></button>`;
 }

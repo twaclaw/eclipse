@@ -74,6 +74,7 @@ function element(tag = "div") {
     dispatch(type, event) {
       for (const fn of listeners.get(type) || []) fn(event);
     },
+    requestFullscreen: () => Promise.resolve(),
     setPointerCapture() {},
     releasePointerCapture() {},
     getBoundingClientRect: () => ({ left: 0, top: 0, width: 900, height: 420 }),
@@ -100,7 +101,13 @@ globalThis.window = {
   addEventListener() {},
   removeEventListener() {},
 };
-globalThis.document = { hidden: false, createElement: () => element("canvas") };
+globalThis.document = {
+  hidden: false,
+  fullscreenElement: null,
+  createElement: () => element("canvas"),
+  addEventListener() {},
+  removeEventListener() {},
+};
 globalThis.performance = performance;
 globalThis.requestAnimationFrame = (cb) => {
   frames.push(cb);
@@ -206,6 +213,7 @@ for (const run of spec.runs) {
     record.clock = text(".es-clock");
     record.clocks = clocks;
     record.transport = text(".es-play");
+    record.fullscreen = text(".es-full");
     record.bigname = text(".es-bigname");
     record.readouts = {
       speed: text(".es-ctl-out-speed"),

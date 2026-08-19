@@ -26,7 +26,7 @@ export default {
           <div class="es-hint">or click the map</div>
         </div>
       </div>
-      ${controlBar(sliderHTML("lat", "latitude"))}
+      ${controlBar(sliderHTML("lat", "latitude"), fullscreenHTML())}
       <div class="es-panel es-diagram">
         <canvas class="es-cdiag"></canvas>
       </div>
@@ -487,6 +487,8 @@ export default {
       latitude.set(Math.round(lat * 100) / 100);
     }
 
+    const fullscreen = attachFullscreen(el);
+
     let shownLat = null;
     let raf = 0;
     const gate = visibilityGate(el);
@@ -516,6 +518,7 @@ export default {
       cancelAnimationFrame(raf);
       latitude.dispose();
       orbit.dispose();
+      fullscreen.dispose();
       gate.dispose();
       ro3d.disconnect();
       ro2d.disconnect();

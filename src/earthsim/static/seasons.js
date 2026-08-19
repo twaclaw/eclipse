@@ -39,6 +39,7 @@ export default {
         sliderHTML("light", "earth"),
         sliderHTML("sunlight", "sun"),
         sliderHTML("when", "when"),
+        fullscreenHTML(),
       )}
       <div class="es-panel es-sunpanel">
         <canvas class="es-csun"></canvas>
@@ -391,6 +392,8 @@ export default {
       format: (v) => "day " + Math.round(v),
     });
 
+    const fullscreen = attachFullscreen(el);
+
     let day = model.get("day_of_year");
     let last = performance.now();
     let raf = 0;
@@ -462,6 +465,7 @@ export default {
       sunlight.dispose();
       when.dispose();
       orbitCam.dispose();
+      fullscreen.dispose();
       gate.dispose();
       ro3d.disconnect();
       ro2d.disconnect();

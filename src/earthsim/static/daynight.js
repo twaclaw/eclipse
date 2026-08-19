@@ -34,6 +34,7 @@ export default {
         playHTML(),
         sliderHTML("speed", "clock"),
         sliderHTML("when", "when"),
+        fullscreenHTML(),
       )}
       <div class="es-status">loading textures&hellip;</div>`;
 
@@ -402,6 +403,8 @@ export default {
       format: (v) => fmtHM(v) + " solar",
     });
 
+    const fullscreen = attachFullscreen(el);
+
     let hours = model.get("utc_hour");
     let last = performance.now();
     let raf = 0;
@@ -464,6 +467,7 @@ export default {
       speed.dispose();
       when.dispose();
       orbit.dispose();
+      fullscreen.dispose();
       gate.dispose();
       ro3d.disconnect();
       ro2d.disconnect();

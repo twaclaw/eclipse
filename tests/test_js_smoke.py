@@ -381,3 +381,15 @@ def test_clicking_the_flat_map_lands_where_it_was_aimed(smoke):
     click = smoke["latitude_map_click"]["click"]
     assert click["longitude"] == pytest.approx(90.0, abs=1.0)
     assert click["latitude"] == pytest.approx(45.0, abs=1.0)
+
+
+@requires_node
+@pytest.mark.parametrize(
+    "name",
+    ["daynight", "moonphases", "seasons", "eclipse_lunar", "latitude_north",
+     "transit_default"],
+)
+def test_every_animation_offers_full_screen(name, smoke):
+    """marimo's app mode strips the cell chrome, so the expand control has to
+    come from the widget or the published pages have none at all."""
+    assert smoke[name]["fullscreen"] == "\u2922"

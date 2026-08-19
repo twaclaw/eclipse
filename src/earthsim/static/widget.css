@@ -260,3 +260,61 @@
   margin-top: 10px;
   height: 380px;
 }
+
+/* Full screen. In marimo's app mode the cell chrome is gone, so the widget has
+   to offer this itself. */
+.es-full {
+  margin-left: auto;
+  width: 26px;
+  height: 22px;
+  padding: 0;
+  cursor: pointer;
+  border-radius: 5px;
+  border: 1px solid rgba(150, 180, 230, 0.35);
+  background: #101733;
+  color: #ffd88a;
+  font-size: 12px;
+  line-height: 1;
+}
+
+.es-full:hover {
+  border-color: rgba(255, 216, 138, 0.7);
+  background: #17203f;
+}
+
+/* Filling the screen means letting the panels grow. Every canvas is sized by a
+   ResizeObserver, so they follow on their own once the boxes stop being fixed. */
+.es-root:fullscreen {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  height: 100vh;
+  padding: 12px;
+  background: #04060e;
+  overflow: hidden;
+}
+
+.es-root:fullscreen .es-grid {
+  flex: 1 1 0;
+  min-height: 0;
+}
+
+.es-root:fullscreen .es-panel {
+  height: auto;
+  min-height: 0;
+  aspect-ratio: auto;
+}
+
+.es-root:fullscreen > .es-panel {
+  flex: 1 1 0;
+  margin-top: 0;
+}
+
+.es-root:fullscreen .es-controls {
+  flex: 0 0 auto;
+  margin-top: 0;
+}
+
+.es-root:fullscreen .es-tabs {
+  flex: 0 0 auto;
+}
