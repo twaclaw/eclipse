@@ -1,0 +1,64 @@
+name: Pages
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+# Standard set for the deploy-pages action: read the repo, write a Pages
+# deployment, and prove who we are.
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+# One deployment at a time; a newer push supersedes an older one mid-flight.
+concurrency:
+  group: pages
+  cancel-in-progress: true
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: astral-sh/setup-uv@v5
+        with:
+          enable-cache: true
+
+      - name: Install
+        run: uv sync
+
+      # node is on the runner already, so the JavaScript suites run rather
+      # than skipping. A broken animation should stop a deployment.
+      - name: Test
+        run: uv run pytest -q
+
+      - name: Build the site
+        run: uv run --group dev python scripts/build_site.py
+
+      # The unit tests cannot tell whether the site deploys. This loads every
+      # page in a real browser and waits for the notebook to draw, which is the
+      # only way to catch a wheel that Pyodide cannot find.
+      - name: Install a browser
+        run: uv run --group site playwright install --with-deps chromium
+
+      - name: Check the built site actually runs
+        run: uv run --group site python scripts/check_site.py
+
+      - uses: actions/configure-pages@v5
+
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: site
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - id: deployment
+        uses: actions/deploy-pages@v4

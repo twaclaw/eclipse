@@ -2,10 +2,12 @@
 name = "earth-simulations"
 version = "0.1.0"
 description = "Animations of the Earth-Moon-Sun system for marimo notebooks"
-requires-python = ">=3.13"
+requires-python = ">=3.12"
+# Runtime dependencies of the package itself. marimo is deliberately absent:
+# earthsim never imports it, only the notebooks do, and a wheel that dragged
+# marimo in would try to install it inside the marimo already running it.
 dependencies = [
     "anywidget>=0.11.0",
-    "marimo>=0.23.16",
     "numpy>=2.0",
 ]
 
@@ -17,7 +19,13 @@ build-backend = "hatchling.build"
 packages = ["src/earthsim"]
 
 [dependency-groups]
-dev = ["pytest>=8.0"]
+dev = [
+    # Needed to run and export the notebooks, not to use the package.
+    "marimo>=0.23.16",
+    "pytest>=8.0",
+]
+# Building, checking and publishing the site; nothing else needs these.
+site = ["playwright>=1.40"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]

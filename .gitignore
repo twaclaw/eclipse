@@ -10,3 +10,6 @@ build/
 
 # marimo session cache
 __marimo__/
+
+# built by scripts/build_site.py
+site/
