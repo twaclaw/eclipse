@@ -31,13 +31,22 @@ import shutil
 import subprocess
 import sys
 import tempfile
+import time
 from pathlib import Path
+from string import Template
 
 ROOT = Path(__file__).resolve().parent.parent
 NOTEBOOKS = ROOT / "notebooks"
 
 #: Pyodide runs Python 3.12, so the wheel must not ask for anything newer.
 PYODIDE_PYTHON = ">=3.12"
+
+#: Both steps are seconds of work locally. The point of a bound is that a
+#: child which stops making progress - waiting on a lock, a mirror or an
+#: answer nobody is there to give - fails the build instead of sitting there
+#: until the CI runner's own six-hour limit puts it out of its misery.
+WHEEL_TIMEOUT_S = 300
+EXPORT_TIMEOUT_S = 600
 
 
 def slug(path: Path) -> str:
@@ -69,6 +78,7 @@ def build_wheel(into: Path) -> Path:
     subprocess.run(
         ["uv", "build", "--wheel", "-o", str(into)],
         cwd=ROOT, check=True, stdout=subprocess.DEVNULL,
+        stdin=subprocess.DEVNULL, timeout=WHEEL_TIMEOUT_S,
     )
     wheels = sorted(into.glob("*.whl"))
     if len(wheels) != 1:
@@ -112,7 +122,7 @@ def prepared(path: Path, wheel: Path, tmp: Path) -> Path:
     return target
 
 
-INDEX = """<!doctype html>
+INDEX = Template("""<!doctype html>
 <html lang="en">
 <head>
 <meta charset="utf-8">
@@ -120,55 +130,259 @@ INDEX = """<!doctype html>
 <title>Earth, Moon and Sun</title>
 <link rel="icon" href="favicon.ico">
 <style>
-  :root {{ color-scheme: dark; }}
-  * {{ box-sizing: border-box; }}
-  body {{
-    margin: 0; padding: 7vh 5vw 12vh;
-    background: #04060e; color: #e9edf6;
-    font: 16px/1.65 ui-sans-serif, system-ui, -apple-system, sans-serif;
-  }}
-  main {{ max-width: 60rem; margin: 0 auto; }}
-  h1 {{ margin: 0 0 .5rem; font-size: clamp(2rem, 5vw, 3.1rem); letter-spacing: -0.02em; }}
-  p.lede {{ margin: 0 0 3rem; max-width: 42rem; color: #a8b3c9; font-size: 1.06rem; }}
-  ol {{ list-style: none; margin: 0; padding: 0; display: grid; gap: 13px; }}
-  a.card {{
-    display: grid; grid-template-columns: 2.6rem 1fr; gap: 1rem; align-items: baseline;
-    padding: 1.1rem 1.3rem; border-radius: 14px;
-    background: #0b1020; border: 1px solid rgba(140, 170, 220, 0.18);
-    color: inherit; text-decoration: none;
-    transition: border-color .15s, background .15s, transform .15s;
-  }}
-  a.card:hover {{
-    border-color: rgba(255, 216, 138, 0.55); background: #101733;
-    transform: translateY(-1px);
-  }}
-  .num {{ font: 600 1.4rem/1 ui-monospace, SFMono-Regular, Menlo, monospace; color: #ffd88a; }}
-  .name {{ display: block; font-weight: 600; font-size: 1.1rem; }}
-  .blurb {{ display: block; color: #a8b3c9; margin-top: .18rem; }}
-  footer {{
-    margin-top: 3.5rem; padding-top: 1.4rem;
-    border-top: 1px solid rgba(140, 170, 220, 0.16);
-    color: #7f8ba3; font-size: .92rem; max-width: 42rem;
-  }}
+  :root { color-scheme: dark; }
+  * { box-sizing: border-box; }
+
+  body {
+    margin: 0;
+    padding: 6vh 5vw 9vh;
+    background: #070b1c;
+    background-image:
+      radial-gradient(1100px 700px at 82% -12%, #1e2f66 0%, transparent 62%),
+      radial-gradient(900px 600px at 6% 6%, #2a1d51 0%, transparent 58%);
+    color: #f2f5ff;
+    font-family: ui-rounded, "SF Pro Rounded", "Hiragino Maru Gothic ProN",
+      Nunito, Quicksand, "Varela Round", "Trebuchet MS", system-ui, sans-serif;
+    font-size: 17px;
+    line-height: 1.55;
+  }
+
+  /* A sky to put the cards in. Dots rather than an image, so the page is still
+     one file and still loads instantly. */
+  .stars {
+    position: fixed; inset: 0; z-index: 0; pointer-events: none; opacity: .7;
+    background-image:
+      radial-gradient(2px 2px at 12% 18%, #fff, transparent),
+      radial-gradient(2px 2px at 27% 62%, #ffe9b8, transparent),
+      radial-gradient(1.5px 1.5px at 41% 12%, #fff, transparent),
+      radial-gradient(2px 2px at 58% 78%, #d6e6ff, transparent),
+      radial-gradient(1.5px 1.5px at 66% 33%, #fff, transparent),
+      radial-gradient(2px 2px at 79% 8%, #ffe9b8, transparent),
+      radial-gradient(1.5px 1.5px at 88% 54%, #fff, transparent),
+      radial-gradient(2px 2px at 94% 88%, #d6e6ff, transparent),
+      radial-gradient(1.5px 1.5px at 34% 91%, #fff, transparent),
+      radial-gradient(2px 2px at 5% 47%, #fff, transparent);
+    animation: twinkle 4.5s ease-in-out infinite alternate;
+  }
+  @keyframes twinkle { from { opacity: .35 } to { opacity: .85 } }
+
+  main { position: relative; z-index: 1; max-width: 68rem; margin: 0 auto; }
+
+  h1 {
+    margin: 0 0 .35rem;
+    font-size: clamp(2.2rem, 6.2vw, 3.7rem);
+    font-weight: 800;
+    letter-spacing: .01em;
+    color: #ffe7a3;
+    text-shadow: 0 0 28px rgba(255, 197, 92, .38);
+  }
+
+  p.lede {
+    margin: 0 0 2.4rem;
+    max-width: 40rem;
+    font-size: 1.16rem;
+    color: #c9d1ec;
+  }
+
+  ol.cards {
+    list-style: none; margin: 0; padding: 0;
+    display: grid; gap: 16px;
+    grid-template-columns: repeat(auto-fit, minmax(25rem, 1fr));
+  }
+
+  a.card {
+    display: grid;
+    grid-template-columns: 108px 1fr;
+    gap: 1.1rem;
+    align-items: center;
+    height: 100%;
+    padding: 1.15rem 1.3rem;
+    border-radius: 22px;
+    border: 2px solid var(--tint);
+    background:
+      linear-gradient(158deg, rgba(255, 255, 255, .09), rgba(255, 255, 255, .02));
+    color: inherit;
+    text-decoration: none;
+    transition: transform .18s ease, box-shadow .18s ease, background .18s ease;
+  }
+
+  a.card:hover, a.card:focus-visible {
+    outline: none;
+    transform: translateY(-4px);
+    background:
+      linear-gradient(158deg, rgba(255, 255, 255, .16), rgba(255, 255, 255, .04));
+    box-shadow: 0 14px 34px rgba(0, 0, 0, .5);
+  }
+
+  .art { display: block; width: 108px; height: 108px; }
+  .art svg { display: block; width: 100%; height: 100%; }
+  a.card:hover .art { animation: wiggle .65s ease-in-out; }
+  @keyframes wiggle {
+    25% { transform: rotate(-7deg) }
+    60% { transform: rotate(6deg) }
+  }
+
+  .num {
+    display: inline-flex; align-items: center; justify-content: center;
+    width: 1.75rem; height: 1.75rem; margin-bottom: .25rem;
+    border-radius: 50%;
+    background: var(--tint); color: #0a0f22;
+    font-size: .95rem; font-weight: 800;
+  }
+
+  .name {
+    display: block;
+    font-size: 1.3rem; font-weight: 800; line-height: 1.25;
+    color: var(--tint);
+  }
+
+  .blurb { display: block; margin-top: .3rem; color: #c9d1ec; }
+
+  p.hint {
+    margin: 2.4rem 0 0;
+    font-size: 1.05rem;
+    color: #ffe7a3;
+  }
+
+  footer {
+    margin-top: 2rem; padding-top: 1.3rem;
+    border-top: 1px solid rgba(140, 170, 220, .18);
+    max-width: 44rem;
+    color: #8b95b5; font-size: .92rem; line-height: 1.6;
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .stars { animation: none }
+    a.card { transition: none }
+    a.card:hover .art { animation: none }
+  }
 </style>
 </head>
 <body>
+<div class="stars"></div>
 <main>
   <h1>Earth, Moon and Sun</h1>
-  <p class="lede">{lede}</p>
-  <ol>
-{cards}
+  <p class="lede">$lede</p>
+  <ol class="cards">
+$cards
   </ol>
-  <footer>{footer}</footer>
+  <p class="hint">$hint</p>
+  <footer>$footer</footer>
 </main>
 </body>
 </html>
-"""
+""")
 
-CARD = """    <li><a class="card" href="{slug}.html">
-      <span class="num">{num}</span>
-      <span><span class="name">{name}</span><span class="blurb">{blurb}</span></span>
-    </a></li>"""
+CARD = Template("""    <li><a class="card" href="$slug.html" style="--tint: $tint">
+      <span class="art">$art</span>
+      <span>
+        <span class="num">$num</span>
+        <span class="name">$name</span>
+        <span class="blurb">$blurb</span>
+      </span>
+    </a></li>""")
+
+# A picture per notebook, drawn rather than fetched: an emoji would be at the
+# mercy of the reader's font, and a child picks the page by its picture.
+ART = {
+    "moon": """<svg viewBox="0 0 100 100" aria-hidden="true">
+      <circle cx="50" cy="50" r="31" fill="#2b3566"/>
+      <path d="M50 19a31 31 0 0 1 0 62 21 31 0 0 0 0-62z" fill="#ffeec2"/>
+      <circle cx="15" cy="20" r="2.4" fill="#fff"/>
+      <circle cx="86" cy="76" r="2" fill="#fff"/>
+    </svg>""",
+    "seasons": """<svg viewBox="0 0 100 100" aria-hidden="true">
+      <g stroke="#ffd166" stroke-width="3.4" stroke-linecap="round">
+        <path d="M24 32V23M24 68v9M8 50H1M14 40L9 35M14 60L9 65M34 40L39 35"/>
+      </g>
+      <circle cx="24" cy="50" r="14" fill="#ffd166"/>
+      <circle cx="72" cy="52" r="19" fill="#4a8fd6"/>
+      <path d="M60 48c8 5 18 5 25 0" stroke="#9ad4a0" stroke-width="3.4"
+        fill="none" stroke-linecap="round"/>
+      <path d="M63 73L81 31" stroke="#fff8e6" stroke-width="3"
+        stroke-linecap="round" stroke-dasharray="6 5"/>
+    </svg>""",
+    "daynight": """<svg viewBox="0 0 100 100" aria-hidden="true">
+      <circle cx="52" cy="52" r="30" fill="#141d3d"/>
+      <path d="M52 22a30 30 0 0 0 0 60z" fill="#7ee0c0"/>
+      <path d="M52 22v60" stroke="#0b1226" stroke-width="2.5"/>
+      <circle cx="14" cy="18" r="9" fill="#ffd166"/>
+      <circle cx="88" cy="84" r="6" fill="#e8ecff"/>
+      <circle cx="78" cy="26" r="2.2" fill="#fff"/>
+      <circle cx="92" cy="46" r="1.8" fill="#fff"/>
+    </svg>""",
+    "lunar": """<svg viewBox="0 0 100 100" aria-hidden="true">
+      <path d="M28 34l68 10v12l-68 10z" fill="#232a52"/>
+      <circle cx="26" cy="50" r="17" fill="#4a8fd6"/>
+      <path d="M14 44c8 4 18 4 26 0" stroke="#9ad4a0" stroke-width="3.2"
+        fill="none" stroke-linecap="round"/>
+      <circle cx="79" cy="50" r="10" fill="#e2603f"/>
+    </svg>""",
+    "solar": """<svg viewBox="0 0 100 100" aria-hidden="true">
+      <g stroke="#ffd166" stroke-width="3.6" stroke-linecap="round">
+        <path d="M50 6v9M50 85v9M6 50h9M85 50h9M19 19l6 6M75 75l6 6M81 19l-6 6M25 75l-6 6"/>
+      </g>
+      <circle cx="50" cy="50" r="27" fill="#ffd166"/>
+      <circle cx="46" cy="47" r="24" fill="#0b1020"/>
+    </svg>""",
+    "polaris": """<svg viewBox="0 0 100 100" aria-hidden="true">
+      <path d="M74 6l4.4 12.6L91 23l-12.6 4.4L74 40l-4.4-12.6L57 23l12.6-4.4z"
+        fill="#ffe08a"/>
+      <path d="M44 72L72 26" stroke="#ffe08a" stroke-width="2.6"
+        stroke-dasharray="5 5" stroke-linecap="round"/>
+      <circle cx="44" cy="72" r="21" fill="#4a8fd6"/>
+      <path d="M31 66c9 4 17 4 26 0" stroke="#9ad4a0" stroke-width="3.2"
+        fill="none" stroke-linecap="round"/>
+    </svg>""",
+    "transit": """<svg viewBox="0 0 100 100" aria-hidden="true">
+      <circle cx="50" cy="50" r="31" fill="#ffd166"/>
+      <path d="M22 60h56" stroke="#d79a24" stroke-width="2.6"
+        stroke-dasharray="4 6" stroke-linecap="round"/>
+      <circle cx="61" cy="60" r="6" fill="#221a3a"/>
+      <circle cx="61" cy="60" r="6" fill="none" stroke="#fff4d2" stroke-width="1.4"/>
+    </svg>""",
+}
+
+#: What each page is called on the contents, in the words of the person most
+#: likely to be clicking. The README table stays the grown-up description and
+#: still fills in for anything not listed here.
+INVITATIONS = {
+    "01_moon_phases.py": (
+        "moon", "#9fd8ff",
+        "Why does the Moon change shape?",
+        "Half of it is always sunny. We just see that sunny half from the side.",
+    ),
+    "02_seasons.py": (
+        "seasons", "#ffd166",
+        "Why do we get summer and winter?",
+        "The Earth leans over, and it keeps leaning the same way all year long.",
+    ),
+    "03_day_and_night.py": (
+        "daynight", "#7ee0c0",
+        "Where in the world is it night now?",
+        "Spin the Earth and follow the line where the Sun is just coming up.",
+    ),
+    "04_lunar_eclipse.py": (
+        "lunar", "#ff9d7a",
+        "Can the Earth hide the Moon?",
+        "Now and then our shadow falls on the Moon and paints it red.",
+    ),
+    "05_solar_eclipse.py": (
+        "solar", "#c9a6ff",
+        "Can the Moon hide the Sun?",
+        "Now and then the Moon's shadow lands on us, and the day goes dim.",
+    ),
+    "06_latitude_and_polaris.py": (
+        "polaris", "#ffe08a",
+        "Which star never moves?",
+        "Point at it, and you have just measured how far north you live.",
+    ),
+    "07_transit_of_venus.py": (
+        "transit", "#ff9fc4",
+        "How far away is the Sun?",
+        "Two people far apart watched a tiny dot cross it, and worked it out.",
+    ),
+}
 
 # Dropped into every exported page: the notebooks are separate documents, so
 # without this there is no way back to the contents.
@@ -187,15 +401,20 @@ BACK_LINK = """
 """
 
 LEDE = (
-    "Seven notebooks on how the sky works, each built so the geometry can be "
-    "poked at rather than taken on trust. Every number comes from Python you "
-    "can read; the browser only draws."
+    "Seven things the sky does, and seven pictures you can play with until you "
+    "can see why. Drag them, slide time back and forth, and pick the spot you "
+    "live in."
+)
+HINT = (
+    "Pick a picture to begin. Give it a few seconds to wake up — it is "
+    "building a whole little world."
 )
 FOOTER = (
-    "Each page runs its notebook in your browser through WebAssembly — there "
-    "is no server. The first load fetches a Python runtime, so give it a few "
-    "seconds; after that everything is local. Planet imagery from the three.js "
-    "example set, originally NASA."
+    "For grown-ups: each page runs a marimo notebook in your browser through "
+    "WebAssembly, so there is no server and nothing to install. The first load "
+    "fetches a Python runtime; after that everything is local. Every number "
+    "comes from Python you can read, and the browser only draws. Planet "
+    "imagery from the three.js example set, originally NASA."
 )
 
 
@@ -224,13 +443,20 @@ def main() -> int:
         for path in notebooks:
             name = slug(path)
             export = tmp / f"export-{name}"
+            started = time.monotonic()
             subprocess.run(
                 [
                     "uv", "run", "marimo", "export", "html-wasm",
                     str(prepared(path, wheel, tmp)),
                     "-o", str(export), "--mode", "run", "--force",
+                    # The prepared copy carries inline dependencies, and marimo
+                    # offers to resolve them in a throwaway venv. It skips the
+                    # question when stdin is not a terminal, but saying so
+                    # outright keeps the build the same everywhere.
+                    "--no-sandbox",
                 ],
                 cwd=ROOT, check=True, stdout=subprocess.DEVNULL,
+                stdin=subprocess.DEVNULL, timeout=EXPORT_TIMEOUT_S,
             )
 
             # The front end is byte-identical between exports, so the first one
@@ -255,23 +481,30 @@ def main() -> int:
 
             title = notebook_title(path)
             number, _, rest = title.partition(". ")
+            art, tint, headline, invite = INVITATIONS.get(
+                path.name, ("moon", "#9fd8ff", rest or title, blurbs.get(path.name, ""))
+            )
             cards.append(
-                CARD.format(
+                CARD.substitute(
                     slug=name,
+                    tint=tint,
+                    art=ART[art],
                     num=number,
-                    name=rest or title,
-                    blurb=blurbs.get(path.name, ""),
+                    name=headline,
+                    blurb=invite,
                 )
             )
-            print(f"page   {name}.html")
+            print(f"page   {name}.html  ({time.monotonic() - started:.0f}s)",
+                  flush=True)
 
         wheels = out / "public" / "wheels"
         wheels.mkdir(parents=True, exist_ok=True)
         shutil.copy2(wheel, wheels / wheel.name)
 
     (out / "index.html").write_text(
-        INDEX.format(
+        INDEX.substitute(
             lede=LEDE,
+            hint=HINT,
             footer=FOOTER,
             cards="\n".join(cards),
         )

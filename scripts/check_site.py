@@ -77,6 +77,7 @@ async def run(site: Path, port: int) -> int:
     server = subprocess.Popen(
         [sys.executable, "-m", "http.server", str(port), "--directory", str(site)],
         stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,
+        stdin=subprocess.DEVNULL,
     )
     try:
         base = f"http://127.0.0.1:{port}"

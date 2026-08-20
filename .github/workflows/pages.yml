@@ -20,6 +20,14 @@ concurrency:
 jobs:
   build:
     runs-on: ubuntu-latest
+    # Without this the job inherits the runner's own limit, which is six hours.
+    # Nothing here takes ten minutes when it is healthy, so a step that stops
+    # making progress should be cut off while somebody still cares.
+    timeout-minutes: 25
+    env:
+      # So the log shows how far the build got, rather than a block of output
+      # arriving after the fact.
+      PYTHONUNBUFFERED: "1"
     steps:
       - uses: actions/checkout@v4
 
@@ -28,23 +36,30 @@ jobs:
           enable-cache: true
 
       - name: Install
+        timeout-minutes: 6
         run: uv sync
 
       # node is on the runner already, so the JavaScript suites run rather
       # than skipping. A broken animation should stop a deployment.
       - name: Test
+        timeout-minutes: 6
         run: uv run pytest -q
 
       - name: Build the site
+        timeout-minutes: 12
         run: uv run --group dev python scripts/build_site.py
+
+      # --with-deps shells out to apt, which is the one step here that can
+      # sit waiting on a package lock it will never get.
+      - name: Install a browser
+        timeout-minutes: 8
+        run: uv run --group site playwright install --with-deps chromium
 
       # The unit tests cannot tell whether the site deploys. This loads every
       # page in a real browser and waits for the notebook to draw, which is the
       # only way to catch a wheel that Pyodide cannot find.
-      - name: Install a browser
-        run: uv run --group site playwright install --with-deps chromium
-
       - name: Check the built site actually runs
+        timeout-minutes: 12
         run: uv run --group site python scripts/check_site.py
 
       - uses: actions/configure-pages@v5
@@ -56,6 +71,7 @@ jobs:
   deploy:
     needs: build
     runs-on: ubuntu-latest
+    timeout-minutes: 10
     environment:
       name: github-pages
       url: ${{ steps.deployment.outputs.page_url }}
