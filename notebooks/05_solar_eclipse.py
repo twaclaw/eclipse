@@ -30,8 +30,6 @@ def _(mo):
     and totality only happens when the Moon is close enough. Drag the
     **distance** control and watch the eclipse flip between total and annular.
 
-    The other control is the same one as in the lunar notebook: an alignment
-    only becomes an eclipse near a **node** of the Moon's tilted orbit.
     """)
     return
 
@@ -92,42 +90,6 @@ def _(eclipse_summary, mo, solar_ui):
     | The Moon's umbra | {_reach} |
     """
     )
-    return
-
-
-@app.cell(hide_code=True)
-def _(mo):
-    mo.md(r"""
-    /// tip | Try this
-    Set the distance to **405500 km**, the Moon's furthest. Its disc is now too
-    small to cover the sun and you get a ring — an **annular** eclipse. Bring it
-    back to **363300 km** and totality returns, corona and all.
-
-    The edge-on panel shows exactly why. The Moon's shadow narrows to a point
-    about 374,000 km behind it. Earth is roughly 384,000 km away, so at average
-    distance the cone runs out **before it gets here** — by about 45 km. Only
-    when the Moon is closer than that does the tip actually land, and the patch
-    it lands in is the path of totality: a hundred kilometres or so across,
-    which is why you have to travel for one.
-    ///
-
-    ### Notes on the model
-
-    * The view is **geocentric** — what you would see from the centre of Earth,
-      or near enough from the best-placed spot on the surface. Where you stand
-      matters enormously for a real solar eclipse: the Moon shifts by up to a
-      degree against the sun between one side of Earth and the other. That
-      parallax is why totality is a narrow track rather than a hemisphere, and
-      it is not modelled here.
-    * That also makes the node limits here narrower than the real ones. This
-      model stops producing eclipses past about 6°; allowing for observers
-      anywhere on Earth, the real limit is nearer 15°.
-    * Annular eclipses are slightly the commoner kind, for the reason above.
-    * The corona is drawn, not computed. Its shape follows the sun's magnetic
-      field and changes from eclipse to eclipse.
-    * Node offset is measured in degrees of the Moon's travel round its orbit
-      from the node, at the moment of alignment.
-    """)
     return
 
 

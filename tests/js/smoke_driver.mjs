@@ -53,13 +53,23 @@ function element(tag = "div") {
   const el = {
     tag,
     style: {},
-    classList: { add() {}, remove() {} },
+    classes: new Set(),
+    classList: {
+      add: (name) => el.classes.add(name),
+      remove: (name) => el.classes.delete(name),
+      contains: (name) => el.classes.has(name),
+    },
     width: 0,
     height: 0,
     textContent: "",
     innerHTML: "",
     parentElement: { clientWidth: 900, clientHeight: 420 },
     getContext: () => context2d(),
+    attrs: {},
+    setAttribute(name, value) {
+      el.attrs[name] = String(value);
+    },
+    getAttribute: (name) => (name in el.attrs ? el.attrs[name] : null),
     addEventListener(type, fn) {
       if (!listeners.has(type)) listeners.set(type, []);
       listeners.get(type).push(fn);
@@ -161,6 +171,8 @@ for (const run of spec.runs) {
       "data:text/javascript," + encodeURIComponent(source)
     );
     const el = element();
+    // iOS Safari has no Element.requestFullscreen. A run can say so.
+    if (run.fullscreen_api === false) delete el.requestFullscreen;
     frames.length = 0;
     const model = fakeModel(run.state);
     const cleanup = await mod.default.render({ model, el });
@@ -213,7 +225,14 @@ for (const run of spec.runs) {
     record.clock = text(".es-clock");
     record.clocks = clocks;
     record.transport = text(".es-play");
-    record.fullscreen = text(".es-full");
+    const full = el.querySelector(".es-full");
+    record.fullscreen = full ? full.textContent : null;
+    record.fullscreenHidden = full ? full.style.display === "none" : null;
+    if (run.press_fullscreen && full) {
+      full.dispatch("click", {});
+      record.blown = [...el.classes];
+      record.fullscreenPressed = full.textContent;
+    }
     record.bigname = text(".es-bigname");
     record.readouts = {
       speed: text(".es-ctl-out-speed"),

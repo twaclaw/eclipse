@@ -396,6 +396,9 @@ BACK_LINK = """
     font: 500 13px/1 ui-sans-serif, system-ui, sans-serif;
   }
   .es-home:hover { background: #101733; }
+  /* An animation filling the screen sets this; the link would otherwise sit on
+     top of the button that gets you back out of it. */
+  .es-blown-page .es-home { display: none; }
 </style>
 <a class="es-home" href="./">&#8592; all notebooks</a>
 """

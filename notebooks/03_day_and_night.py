@@ -49,10 +49,6 @@ def _(mo):
     it stands up into two straight meridians through both poles — the moment
     every latitude on Earth gets twelve hours of daylight.
 
-    Click anywhere on the map to pick a location, and the third panel opens the
-    same moment out into that spot's own sky: a dome showing where the sun is
-    overhead, and a timeline showing when it climbs over the horizon and drops
-    back under it.
     """)
     return
 
@@ -154,38 +150,6 @@ def _(
     )
     return
 
-
-@app.cell(hide_code=True)
-def _(mo):
-    mo.md(r"""
-    /// tip | Try this
-    Drag the date to **355** and click deep inside Antarctica: the sun never
-    sets there. Keep the marker where it is and drag the date to **172** for
-    the opposite extreme, polar night. Anywhere on the equator the readout
-    stays at twelve hours all year, which is the one latitude the tilt cannot
-    reach.
-    ///
-
-    ### Notes on the model
-
-    * The frame is the one every animation here shares: the ecliptic is the
-      world *xz* plane and the spin axis is **fixed** in it, tilted 23.44°
-      toward *+x*. That is why one unchanging axis yields a different solar
-      declination as the year advances, which is the mechanism animation 2
-      will show directly.
-    * The orbit is a real ellipse solved through Kepler's equation, so the
-      equinoxes and solstices land on their actual calendar dates rather than
-      being spaced evenly. Those dates are read back off the model, not
-      hard-coded — see `earthsim.labels.SEASON_DAYS`.
-    * Times are apparent solar time: the equation of time and the four-minute
-      gap between the solar and sidereal day are ignored. Over one simulated
-      day the difference is invisible.
-    * Day lengths are geometric — the sun's centre, no atmospheric refraction —
-      so they run a few minutes shorter than an almanac's sunrise tables.
-    * Textures come from the three.js example set (NASA Blue Marble and the
-      DMSP night-lights composite), loaded from a CDN.
-    """)
-    return
 
 
 if __name__ == "__main__":

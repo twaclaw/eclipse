@@ -24,21 +24,6 @@ def _(mo):
     Half the Moon is lit. It always has been, and it always will be, in exactly
     the same way half of Earth is always in daylight. What changes over a month
     is **how much of that lit half happens to be pointed at us**.
-
-    Watch the two panels together. On the left, from above the north pole, the
-    Moon's bright side stubbornly faces the sun no matter where it is on its
-    orbit. On the right is the same Moon seen from Earth, and the phase is
-    simply the slice of the bright side that our line of sight catches.
-
-    /// warning | Not Earth's shadow
-    It is tempting to explain phases by saying Earth gets between the sun and
-    the Moon. That does happen — it is called a **lunar eclipse**, it lasts a
-    couple of hours, and it is rare. Phases happen every month, take four weeks,
-    and would carry on exactly the same if Earth cast no shadow at all. The
-    `node longitude` control below shows why eclipses are the exception:
-    the Moon's orbit is tilted about 5°, so at most full moons it sails above
-    or below the shadow entirely.
-    ///
     """)
     return
 
@@ -119,46 +104,6 @@ def _(ast, mo, moon_node, moon_ui, np, phase_name, phase_name_es):
     | Eclipse | {_verdict} |
     """
     )
-    return
-
-
-@app.cell(hide_code=True)
-def _(mo):
-    mo.md(r"""
-    /// tip | Try this
-    Pause with the control strip and drag **when** slowly from 0 to 29.5. The Moon on
-    the right never stops being half lit; only our viewing angle changes.
-
-    Then leave **when** at **14.8 days** (full moon) and sweep **node
-    longitude**. The phase on the right does not budge, because the tilt is
-    irrelevant to it — but the height above the ecliptic swings through five
-    degrees, and only for a narrow band of node angles does an eclipse become
-    possible at all.
-    ///
-
-    ### Notes on the model
-
-    * The left panel is **not to scale**. The Moon is about thirty Earth
-      diameters away, and the sun is four hundred times further than that. Drawn
-      honestly, the orbit would be a speck and the sun would be off in the next
-      room. What *is* honest is the geometry: sunlight arrives as parallel rays,
-      and both bodies keep their lit halves turned towards it.
-    * The Moon on the right keeps one face towards Earth, so the camera never
-      moves — the lighting swings around it instead. That is why you always see
-      the same craters.
-    * The cycle runs on the **synodic month** of 29.53 days, which is longer
-      than the 27.32-day orbit because the sun keeps moving too. In one lunar
-      orbit the Earth has travelled far enough that the Moon needs another two
-      days to catch the sun up.
-    * The name under the panels is the Spanish one, in capitals, for reading
-      along with. Python chooses the wording and the stylesheet does the
-      capitals, so both languages switch phase at exactly the same instant.
-    * The **moon** slider is exposure, not physics: it brightens the sunlit
-      face so a thin crescent stays visible without washing out a full moon.
-    * Earthshine is the faint glow on the dark side: sunlight reflected off
-      Earth. It is brightest at a thin crescent, because that is when Earth as
-      seen from the Moon is nearly full.
-    """)
     return
 
 

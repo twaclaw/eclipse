@@ -262,59 +262,87 @@
 }
 
 /* Full screen. In marimo's app mode the cell chrome is gone, so the widget has
-   to offer this itself. */
+   to offer this itself - and it says so in words, because an icon alone was
+   too easy to miss. Red so it reads as the one control that changes the shape
+   of the page rather than a parameter of the animation. */
 .es-full {
   margin-left: auto;
-  width: 26px;
-  height: 22px;
-  padding: 0;
+  min-height: 34px;
+  padding: 0 14px;
   cursor: pointer;
-  border-radius: 5px;
-  border: 1px solid rgba(150, 180, 230, 0.35);
-  background: #101733;
-  color: #ffd88a;
-  font-size: 12px;
-  line-height: 1;
+  border-radius: 9px;
+  border: 2px solid #ff8a90;
+  background: #d92d3c;
+  color: #fff;
+  font: 700 14px/1 ui-sans-serif, system-ui, -apple-system, sans-serif;
+  letter-spacing: .01em;
+  white-space: nowrap;
+  box-shadow: 0 2px 10px rgba(217, 45, 60, .45);
 }
 
 .es-full:hover {
-  border-color: rgba(255, 216, 138, 0.7);
-  background: #17203f;
+  border-color: #ffc2c5;
+  background: #ef3949;
+}
+
+.es-full:active {
+  transform: translateY(1px);
+}
+
+/* On a phone the control bar wraps, and a button pushed to the end of a
+   wrapped row can end up somewhere nobody looks. Give it its own full-width
+   line instead. */
+@media (max-width: 560px) {
+  .es-full {
+    margin-left: 0;
+    width: 100%;
+    min-height: 40px;
+  }
 }
 
 /* Filling the screen means letting the panels grow. Every canvas is sized by a
-   ResizeObserver, so they follow on their own once the boxes stop being fixed. */
-.es-root:fullscreen {
+   ResizeObserver, so they follow on their own once the boxes stop being fixed.
+
+   The class is set by the widget for both routes: the real Fullscreen API
+   where there is one, and a pinned overlay on iOS, which has none. */
+.es-root.es-blown {
+  position: fixed;
+  inset: 0;
+  /* Above the things a page pins to its corners - the contents link on the
+     published site, marimo's own badge - which otherwise land on top of the
+     button you need to press to get back out. */
+  z-index: 2147483000;
   display: flex;
   flex-direction: column;
   gap: 10px;
   height: 100vh;
+  height: 100dvh;
   padding: 12px;
   background: #04060e;
   overflow: hidden;
 }
 
-.es-root:fullscreen .es-grid {
+.es-root.es-blown .es-grid {
   flex: 1 1 0;
   min-height: 0;
 }
 
-.es-root:fullscreen .es-panel {
+.es-root.es-blown .es-panel {
   height: auto;
   min-height: 0;
   aspect-ratio: auto;
 }
 
-.es-root:fullscreen > .es-panel {
+.es-root.es-blown > .es-panel {
   flex: 1 1 0;
   margin-top: 0;
 }
 
-.es-root:fullscreen .es-controls {
+.es-root.es-blown .es-controls {
   flex: 0 0 auto;
   margin-top: 0;
 }
 
-.es-root:fullscreen .es-tabs {
+.es-root.es-blown .es-tabs {
   flex: 0 0 auto;
 }

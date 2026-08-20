@@ -444,18 +444,23 @@ function fullscreenHTML() {
 
 function attachFullscreen(el) {
   const button = el.querySelector(".es-full");
+  if (!button) return { dispose() {} };
+
   const enter =
     el.requestFullscreen || el.webkitRequestFullscreen || el.msRequestFullscreen;
-  if (!button) return { dispose() {} };
-  if (!enter) {
-    button.style.display = "none";
-    return { dispose() {} };
-  }
+
+  /* iOS Safari has no Element.requestFullscreen at all - only a video can go
+   * full screen there - so the button used to hide itself on exactly the
+   * device with the least screen to spare. Where the API is missing, the
+   * widget pins itself over the page instead: it does not hide the browser's
+   * own chrome, but it does give the animation the whole viewport, which is
+   * the part that matters. */
+  let pinned = false;
 
   // The widget lives in a shadow root, and document.fullscreenElement
   // retargets to the shadow host - so comparing against it never matches.
   // Asking the element whether it is the fullscreen one avoids that entirely.
-  const isOn = () => {
+  const isNative = () => {
     for (const selector of [":fullscreen", ":-webkit-full-screen"]) {
       try {
         if (el.matches(selector)) return true;
@@ -465,20 +470,49 @@ function attachFullscreen(el) {
     }
     return false;
   };
+  const isOn = () => pinned || isNative();
+
   const paint = () => {
-    button.textContent = isOn() ? "\u2715" : "\u2922";
-    button.title = isOn() ? "leave full screen" : "full screen";
+    const on = isOn();
+    // One class for both routes, so the layout has a single set of rules.
+    el.classList[on ? "add" : "remove"]("es-blown");
+    // The page cannot see into this shadow root, so tell it out loud: anything
+    // it has pinned to a corner should get out of the way.
+    try {
+      document.documentElement.classList[on ? "add" : "remove"]("es-blown-page");
+    } catch (_) {
+      // No document to speak of; nothing to hide either.
+    }
+    button.textContent = on ? "\u2715 Exit full screen" : "\u2922 Full screen";
+    button.title = on ? "leave full screen" : "fill the screen";
+    button.setAttribute("aria-pressed", on ? "true" : "false");
   };
+
   const toggle = () => {
-    if (isOn()) {
+    if (isNative()) {
       const leave = document.exitFullscreen || document.webkitExitFullscreen;
       if (leave) leave.call(document);
-    } else {
-      // Rejects if the browser refuses; there is nothing useful to do about it
-      // beyond not letting it become an unhandled rejection.
-      const asked = enter.call(el);
-      if (asked && asked.catch) asked.catch(() => {});
+      return;
     }
+    if (pinned) {
+      pinned = false;
+      paint();
+      return;
+    }
+    if (enter) {
+      // Rejects if the browser refuses; there is nothing useful to do about it
+      // beyond falling back to pinning rather than leaving the button dead.
+      const asked = enter.call(el);
+      if (asked && asked.catch) {
+        asked.catch(() => {
+          pinned = true;
+          paint();
+        });
+      }
+      return;
+    }
+    pinned = true;
+    paint();
   };
 
   button.addEventListener("click", toggle);
@@ -490,6 +524,12 @@ function attachFullscreen(el) {
       button.removeEventListener("click", toggle);
       document.removeEventListener("fullscreenchange", paint);
       document.removeEventListener("webkitfullscreenchange", paint);
+      el.classList.remove("es-blown");
+      try {
+        document.documentElement.classList.remove("es-blown-page");
+      } catch (_) {
+        // As above.
+      }
     },
   };
 }

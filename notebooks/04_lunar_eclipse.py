@@ -28,16 +28,6 @@ def _(mo):
     plane of Earth's orbit at just two points — the **nodes** — and a full moon
     only lands in the shadow if it happens near one. Anywhere else it sails a
     degree or so over or under, and a degree puts it a whole Earth radius clear.
-
-    Drag the **node** control and watch that happen.
-
-    Three views of the same moment: the Moon as you would see it, the shadow
-    seen down its own axis, and the whole system edge-on — that last one drawn
-    entirely to scale, which diagrams of this almost never are. The pink line
-    is the stretch of orbit the Moon covers while you watch. Pull **zoom** back
-    to 1 for the true extent of it, and drag to turn the view, because the
-    crossing runs almost entirely *across* the shadow's axis and straight-on
-    would hide it.
     """)
     return
 
@@ -91,43 +81,6 @@ def _(eclipse_summary, lunar_ui, mo):
     | Earth's umbra out there | {_scalars['umbra_radius_deg'] * 2:.2f}° across, {_scalars['umbra_earth_radii'] * 2 * 6371:,.0f} km |
     """
     )
-    return
-
-
-@app.cell(hide_code=True)
-def _(mo):
-    mo.md(r"""
-    /// tip | Try this
-    Leave the node at 0 and let it run. The Moon slides into the penumbra and
-    dims, then enters the umbra and turns **copper rather than black**. That
-    colour is sunlight refracted through the whole ring of Earth's sunrises and
-    sunsets and bent inward — during totality the Moon is lit by every dawn on
-    the planet at once.
-
-    Now walk the node control out to **±6°**. The umbral crossing shortens, the
-    eclipse goes partial, then penumbral, then stops. Past about 10.6° it
-    cannot happen at all.
-    ///
-
-    ### Notes on the model
-
-    * A lunar eclipse is visible from **the whole night side of Earth** at once,
-      and lasts hours. That is the opposite of a solar eclipse, which is why
-      most people have seen several of these and no totalities.
-    * Shadow sizes come out of the geometry rather than being quoted: Earth's
-      umbra works out at 4600 km across at the Moon's distance and its penumbra
-      8175 km, both matching the almanac.
-    * The edge-on strip is **fully to scale**, both directions: sixty Earth
-      radii of gap and a shadow that tapers away to nothing after two hundred.
-      Textbook versions are almost always drawn with the Moon far too close and
-      far too big, which is part of why eclipses seem like they ought to be
-      monthly.
-    * Almost none of the crossing is up-and-down. Over six hours either side of
-      the alignment the Moon moves about six Earth radii across the shadow's
-      axis and only half of one vertically.
-    * Node offset is measured in degrees of the Moon's travel round its orbit
-      from the node, at the moment of alignment.
-    """)
     return
 
 

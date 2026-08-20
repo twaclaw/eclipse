@@ -21,7 +21,7 @@ def _(mo):
     mo.md(r"""
     # 2. Axial tilt and the seasons
 
-    Earth's axis leans 23.44° out of the plane of its orbit, and — this is the
+    Earth's axis leans 23.44° out of the plane of its orbit, and - this is the
     part that matters — **it keeps pointing the same way in space all year**. It
     does not tip back and forth. It does not follow the sun. It just leans, and
     the planet carries that lean around the orbit with it.
@@ -31,11 +31,6 @@ def _(mo):
     blue line never changes direction, yet in June its northern end tips
     sunward and in December it tips away.
 
-    Pick a place on the map, and the panel underneath draws that place's day:
-    the sun's height against the clock, with the daylight lit up. Watch it as
-    the orbit runs. The bright arch swells through summer and shrinks through
-    winter, and above the polar circle it either swallows the whole day or
-    vanishes below the horizon altogether. Same axis, same lean, all year.
     """)
     return
 
@@ -111,59 +106,6 @@ def _(ast, date_label, duration, lat_label, mo, np, seasons_ui):
     factor of ten.
     """
     )
-    return
-
-
-@app.cell(hide_code=True)
-def _(mo):
-    mo.md(r"""
-    /// tip | Try this
-    Hit pause in the control strip and drag **when** to day **3** —
-    Earth's closest approach to the sun, at
-    0.983 AU. It is the depth of northern winter. Now set it to **186**, the
-    furthest point at 1.017 AU, in the middle of northern summer. Distance is
-    doing the opposite of what the seasons do.
-
-    Then press play, ease the orbit speed down until it crawls, and click
-    somewhere above the Arctic circle — northern Greenland, or
-    Svalbard at about 78°N — and let it run. The arch lifts clear of the
-    horizon for weeks on end in summer, then sinks entirely beneath it in
-    winter. Compare the tenfold swing in the sunlight row above with the 3.4%
-    swing in the distance row.
-
-    Finally, drag **exaggerate the ellipse** up to 12 and watch the orbit turn
-    into a visible oval. That is what textbook diagrams draw, and it is why so
-    many people come away thinking the seasons are about distance.
-    ///
-
-    ### Notes on the model
-
-    * The orbit is genuinely this circular. At its true eccentricity of 0.0167
-      the ellipse is indistinguishable from a circle on screen, which is why the
-      exaggeration slider exists — and why it starts at 1.0, showing the truth.
-    * **The globe does not spin.** A year passes in seconds here, so 365 turns
-      would be a blur that hid the thing worth seeing. The lit half still moves,
-      because that depends on where Earth is, not on the time of day.
-    * The globe is turned so the place you picked sits at local noon, which is
-      why its hemisphere is always the one facing the sun. Pick somewhere else
-      and the planet swings round to suit.
-    * The **earth** and **sun** sliders are exposure, not physics. The sun is
-      drawn far smaller than any honest scale would allow — at true proportions
-      it would be a hundred times Earth's width and four hundred times further
-      away — so its size and glare are chosen to read well, not to measure.
-    * The yellow line on the map is the latitude the sun stands directly over.
-      It slides between the two tropics and back once a year: that is the tilt,
-      drawn on the ground.
-    * The sun-path panel runs on **local solar time**, so noon is always at 12
-      and longitude does not change the shape of the arch — only latitude and
-      the date do. The dashed curves are the June and December solstices, the
-      bounds every other day of the year falls between.
-    * Insolation in the table is the daily mean at the top of the atmosphere,
-      so it accounts for how high the sun climbs, how long it stays up, *and*
-      the distance. Clouds, air and ground cover are not in it.
-    * Season names are given for both hemispheres, since the tilt does opposite
-      things at opposite ends of the planet at the same moment.
-    """)
     return
 
 

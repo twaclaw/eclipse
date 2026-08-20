@@ -159,6 +159,14 @@ def build_runs() -> list[dict]:
             "state": widget_state(TransitWidget()),
         },
         {
+            # A phone: no Element.requestFullscreen anywhere in sight.
+            "name": "daynight_no_fullscreen_api",
+            "modules": ["earthkit.js", "daynight.js"],
+            "state": widget_state(DayNightWidget()),
+            "fullscreen_api": False,
+            "press_fullscreen": True,
+        },
+        {
             "name": "transit_central",
             "modules": ["earthkit.js", "transit.js"],
             "state": widget_state(TransitWidget(impact_arcsec=0.0)),
@@ -392,4 +400,19 @@ def test_clicking_the_flat_map_lands_where_it_was_aimed(smoke):
 def test_every_animation_offers_full_screen(name, smoke):
     """marimo's app mode strips the cell chrome, so the expand control has to
     come from the widget or the published pages have none at all."""
-    assert smoke[name]["fullscreen"] == "\u2922"
+    label = smoke[name]["fullscreen"]
+    assert label.startswith("\u2922")
+    # In words as well as in glyph: the icon on its own was too easy to miss.
+    assert "Full screen" in label
+    assert smoke[name]["fullscreenHidden"] is False
+
+
+@requires_node
+def test_full_screen_works_without_the_fullscreen_api(smoke):
+    """iOS Safari has no Element.requestFullscreen - only a video can go full
+    screen there - so the button hid itself on exactly the device with the
+    least screen to spare. It pins the widget over the page instead."""
+    run = smoke["daynight_no_fullscreen_api"]
+    assert run["fullscreenHidden"] is False
+    assert "es-blown" in run["blown"]
+    assert run["fullscreenPressed"].startswith("\u2715")
