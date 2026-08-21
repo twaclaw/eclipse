@@ -38,6 +38,12 @@ from string import Template
 ROOT = Path(__file__).resolve().parent.parent
 NOTEBOOKS = ROOT / "notebooks"
 
+#: Images the contents page needs. Only the top level is published: the
+#: full-resolution originals sit in assets/originals, which is ignored by git
+#: and never copied, because a 1.7 MB photograph has no business being fetched
+#: to be drawn 150 pixels wide.
+MEDIA = ROOT / "assets"
+
 #: Pyodide runs Python 3.12, so the wheel must not ask for anything newer.
 PYODIDE_PYTHON = ">=3.12"
 
@@ -67,9 +73,14 @@ def descriptions() -> dict[str, str]:
     """
     out: dict[str, str] = {}
     for line in (ROOT / "README.md").read_text().splitlines():
-        row = re.match(r"^\|\s*`([^`]+\.py)`\s*\|\s*(.+?)\s*\|\s*$", line)
-        if row:
-            out[row.group(1)] = row.group(2)
+        row = re.match(r"^\|\s*([^|]+?)\s*\|\s*(.+?)\s*\|\s*$", line)
+        if not row:
+            continue
+        # The first cell names the notebook, however it is dressed: bare, in
+        # backticks, or as a link to the file.
+        found = re.search(r"([\w-]+\.py)", row.group(1))
+        if found:
+            out[found.group(1)] = row.group(2)
     return out
 
 
@@ -127,7 +138,7 @@ INDEX = Template("""<!doctype html>
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Earth, Moon and Sun</title>
+<title>Ήλιος, Σελήνη και Γαία</title>
 <link rel="icon" href="favicon.ico">
 <style>
   :root { color-scheme: dark; }
@@ -168,20 +179,66 @@ INDEX = Template("""<!doctype html>
 
   main { position: relative; z-index: 1; max-width: 68rem; margin: 0 auto; }
 
+  .hero {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: clamp(1rem, 3vw, 2.2rem);
+    margin: 0 0 2.6rem;
+  }
+
+  /* The oldest picture of this sky that anybody has: sun, moon and stars,
+     beaten into bronze some three and a half thousand years ago. Round, so it
+     is cut round - the corners of the crop are only black. */
+  .plate {
+    flex: none;
+    width: clamp(104px, 17vw, 176px);
+    margin: 0;
+  }
+
+  .plate figcaption {
+    margin-top: .45rem;
+    text-align: center;
+    font-size: .66rem;
+    letter-spacing: .02em;
+    color: #7683a0;
+  }
+
+  .plate a {
+    color: inherit;
+    text-underline-offset: 2px;
+  }
+
+  .plate a:hover {
+    color: #ffe7a3;
+  }
+
+  .disc {
+    display: block;
+    width: 100%;
+    height: auto;
+    border-radius: 50%;
+    box-shadow:
+      0 0 0 3px rgba(255, 216, 138, .28),
+      0 10px 40px rgba(0, 0, 0, .65);
+  }
+
   h1 {
-    margin: 0 0 .35rem;
-    font-size: clamp(2.2rem, 6.2vw, 3.7rem);
+    margin: 0;
+    /* Not the body stack: its rounded faces have no Greek, and the next thing
+       in the list that does is a Japanese font, which sets Ήλιος in a wide
+       serif nothing like the rest of the page. */
+    font-family: ui-rounded, "SF Pro Rounded", Nunito, Quicksand,
+      "Varela Round", system-ui, -apple-system, "Segoe UI", Roboto,
+      "Helvetica Neue", Arial, sans-serif;
+    flex: 1 1 14rem;
+    min-width: 0;
+    font-size: clamp(2rem, 5.6vw, 3.5rem);
     font-weight: 800;
+    line-height: 1.12;
     letter-spacing: .01em;
     color: #ffe7a3;
     text-shadow: 0 0 28px rgba(255, 197, 92, .38);
-  }
-
-  p.lede {
-    margin: 0 0 2.4rem;
-    max-width: 40rem;
-    font-size: 1.16rem;
-    color: #c9d1ec;
   }
 
   ol.cards {
@@ -261,8 +318,17 @@ INDEX = Template("""<!doctype html>
 <body>
 <div class="stars"></div>
 <main>
-  <h1>Earth, Moon and Sun</h1>
-  <p class="lede">$lede</p>
+  <header class="hero">
+    <figure class="plate">
+      <img class="disc" src="media/nebra_disk.jpg" width="512" height="512"
+        alt="The Nebra sky disc: a bronze disc inlaid with a gold sun, a
+          crescent moon and a scatter of stars.">
+      <figcaption>source: <a
+        href="https://commons.wikimedia.org/wiki/File:Nebra_disc_1.jpg"
+        rel="noopener">Wikimedia</a></figcaption>
+    </figure>
+    <h1>Ήλιος, Σελήνη και Γαία</h1>
+  </header>
   <ol class="cards">
 $cards
   </ol>
@@ -403,11 +469,6 @@ BACK_LINK = """
 <a class="es-home" href="./">&#8592; all notebooks</a>
 """
 
-LEDE = (
-    "Seven things the sky does, and seven pictures you can play with until you "
-    "can see why. Drag them, slide time back and forth, and pick the spot you "
-    "live in."
-)
 HINT = (
     "Pick a picture to begin. Give it a few seconds to wake up — it is "
     "building a whole little world."
@@ -419,6 +480,18 @@ FOOTER = (
     "comes from Python you can read, and the browser only draws. Planet "
     "imagery from the three.js example set, originally NASA."
 )
+
+
+def copy_media(out: Path) -> None:
+    """Publish the top level of assets/ as site/media/."""
+    if not MEDIA.is_dir():
+        return
+    media = out / "media"
+    media.mkdir(parents=True, exist_ok=True)
+    for item in sorted(MEDIA.iterdir()):
+        if item.is_file() and not item.name.startswith("."):
+            shutil.copy2(item, media / item.name)
+            print(f"media  {item.name}  ({item.stat().st_size // 1024} kB)")
 
 
 def main() -> int:
@@ -506,12 +579,12 @@ def main() -> int:
 
     (out / "index.html").write_text(
         INDEX.substitute(
-            lede=LEDE,
             hint=HINT,
             footer=FOOTER,
             cards="\n".join(cards),
         )
     )
+    copy_media(out)
     (out / ".nojekyll").touch()
 
     total = sum(f.stat().st_size for f in out.rglob("*") if f.is_file())

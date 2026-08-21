@@ -13,3 +13,6 @@ __marimo__/
 
 # built by scripts/build_site.py
 site/
+
+# Full-resolution source images: the site carries the web-sized copies.
+assets/originals/
