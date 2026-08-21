@@ -309,15 +309,29 @@ export default {
 
     /* Timeline: elevation against the clock, which is where sunrise and sunset
      * become times rather than directions. */
+    const EL_TOP = 90;
+    const EL_BOTTOM = -90;
+
     function drawTimeline(track, at, box, hours) {
       const x = (h) => box.x + (h / 24) * box.w;
-      const y = (elev) => box.y + ((60 - elev) / 120) * box.h;
+      // The whole range an elevation can have. It used to stop at 60, which is
+      // fine in northern Europe and wrong everywhere the sun climbs higher:
+      // between the tropics it reaches 90, and the crest was drawn off the top
+      // of the box. The horizon lands mid-panel, which is where it belongs.
+      const y = (elev) => box.y + ((EL_TOP - elev) / (EL_TOP - EL_BOTTOM)) * box.h;
       const horizon = y(0);
 
       sky.fillStyle = SKY_NIGHT;
       sky.fillRect(box.x, box.y, box.w, box.h);
       sky.fillStyle = SKY_DAY;
       sky.fillRect(box.x, box.y, box.w, horizon - box.y);
+
+      // Belt and braces: a track that ever handed over an out-of-range angle
+      // would paint over the panel next door rather than over its own edge.
+      sky.save();
+      sky.beginPath();
+      sky.rect(box.x, box.y, box.w, box.h);
+      sky.clip();
 
       const path = track.paths.sky_today || [];
       const above = [];
@@ -334,7 +348,7 @@ export default {
       sky.fill();
       sky.restore();
 
-      for (const elev of [-30, 30, 60]) {
+      for (const elev of [-60, -30, 30, 60]) {
         polyline(sky, [[box.x, y(elev)], [box.x + box.w, y(elev)]],
                  "rgba(255,255,255,0.10)", 1);
         label(sky, elev + "°", box.x + 3, y(elev) - 2, "rgba(255,255,255,0.35)");
@@ -362,6 +376,7 @@ export default {
       }
 
       dot(sky, x(hours), y(at.sun_elevation), "#ffd45e", 6, true);
+      sky.restore();
     }
 
     function drawSky(track, at, hours) {

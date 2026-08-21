@@ -11,6 +11,7 @@ Loosely speaking, the instructions were along these lines:
 - Keep the JavaScript layer as thin as possible.
 - Use Marimo and its ability to export WebAssembly (WASM) to serve this site on GitHub Pages.
 - Use photo-realistic images of the Earth and Moon.
+- Create a `Makefile`
 
 The following notebooks were implemented:
 
